@@ -77,10 +77,8 @@ void LogFac::Init(bool isasync,const std::string& con_file){
 	}
 	//特殊判断输出流为文件的时候
 	if (log_type.find("file")!=string::npos) {
-		cout<<"输出到文件"<<endl;
 		//如果未指定输出文件，则输出到默认文件中，即输出到"log.txt"中
 		if (log_file.empty()) {
-			cout<<"输出到屏幕"<<endl;
 			log_file = LOGFILE;
 		}
 		//因为输出流是文件，所以我们需要文件输出流
@@ -104,7 +102,6 @@ void LogFac::Init(bool isasync,const std::string& con_file){
 	//如果为控制台输出，则log_file没有用
 	//不需要去管log_file
 	else {
-		cout<<"输出到屏幕2"<<endl;
 		logger_.SetOutput(make_unique<LogConsoleOutput>());
 	}
 

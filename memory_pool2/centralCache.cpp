@@ -14,7 +14,7 @@ void *centralCache::fetchRange(size_t index,size_t batchNum,size_t &RealIncrease
 
   //自旋锁保护
   //这里调用函数test_and_set，这个函数是atomic_flag（这个类类似于一个bool变量）自带的成员函数
-  //他的作用是读取当前对象的值，然后将当前对象设置为true，返回原理的值
+  //他的作用是读取当前对象的值，然后将当前对象设置为true，返回原来的值
   //放在这里就是当lock上锁的时候（也就是对象为true的时候），他会一直死循环（while(true（返回值为true）)）
   //然后std::this_thread::yield()会使当前线程自主放弃cpu，是线程进入准备态
   //实现了一个不占用cpu的死循环
@@ -45,7 +45,7 @@ void *centralCache::fetchRange(size_t index,size_t batchNum,size_t &RealIncrease
       if(!result){
         //如果还是申请失败，那么我们释放锁返回空指针
         //release在该操作之前的所有读写操作（包括非原子的），都不能被重排到该 clear 之后
-        //上方的require和这里的release可以确保临界区内的操作不会“泄露”到临界区之外，保证了正确性
+        //上方的acquire和这里的release可以确保临界区内的操作不会“泄露”到临界区之外，保证了正确性
         locks_[index].clear(std::memory_order_release);
         return nullptr;
       }
@@ -104,7 +104,7 @@ void *centralCache::fetchRange(size_t index,size_t batchNum,size_t &RealIncrease
         count++;
       }
       //这步代码有两个意思，第一如果count<batchNum，说明存储的内存小于申请的内存，那么我们将实际增加的内存改为count
-      //如果count = batchNum那么说明实际能存内分配这么乧，那么RealInrease还是增加为count
+      //如果count = batchNum那么说明实际能分配的内存就是申请的内存，那么RealInrease还是增加为count
       RealIncrease=count;
       
       if(prev){ //如果当前centralFreeList_[index]存储的链表上的内存块大于batchNum时

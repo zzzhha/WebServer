@@ -70,35 +70,9 @@ CMakeFiles/httpserver.dir/reactor/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/reactor/main.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/reactor/main.cpp -o CMakeFiles/httpserver.dir/reactor/main.cpp.s
 
-CMakeFiles/httpserver.dir/http/httprequest.cpp.o: CMakeFiles/httpserver.dir/flags.make
-CMakeFiles/httpserver.dir/http/httprequest.cpp.o: ../http/httprequest.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/httpserver.dir/http/httprequest.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/http/httprequest.cpp.o -c /home/ubuntu/httpserver/http/httprequest.cpp
-
-CMakeFiles/httpserver.dir/http/httprequest.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/http/httprequest.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/http/httprequest.cpp > CMakeFiles/httpserver.dir/http/httprequest.cpp.i
-
-CMakeFiles/httpserver.dir/http/httprequest.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/http/httprequest.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/http/httprequest.cpp -o CMakeFiles/httpserver.dir/http/httprequest.cpp.s
-
-CMakeFiles/httpserver.dir/http/httpresponse.cpp.o: CMakeFiles/httpserver.dir/flags.make
-CMakeFiles/httpserver.dir/http/httpresponse.cpp.o: ../http/httpresponse.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/httpserver.dir/http/httpresponse.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/http/httpresponse.cpp.o -c /home/ubuntu/httpserver/http/httpresponse.cpp
-
-CMakeFiles/httpserver.dir/http/httpresponse.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/http/httpresponse.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/http/httpresponse.cpp > CMakeFiles/httpserver.dir/http/httpresponse.cpp.i
-
-CMakeFiles/httpserver.dir/http/httpresponse.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/http/httpresponse.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/http/httpresponse.cpp -o CMakeFiles/httpserver.dir/http/httpresponse.cpp.s
-
 CMakeFiles/httpserver.dir/logger/log_fac.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/logger/log_fac.cpp.o: ../logger/log_fac.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/httpserver.dir/logger/log_fac.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/httpserver.dir/logger/log_fac.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/logger/log_fac.cpp.o -c /home/ubuntu/httpserver/logger/log_fac.cpp
 
 CMakeFiles/httpserver.dir/logger/log_fac.cpp.i: cmake_force
@@ -111,7 +85,7 @@ CMakeFiles/httpserver.dir/logger/log_fac.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/logger/log_console_output.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/logger/log_console_output.cpp.o: ../logger/log_console_output.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/httpserver.dir/logger/log_console_output.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/httpserver.dir/logger/log_console_output.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/logger/log_console_output.cpp.o -c /home/ubuntu/httpserver/logger/log_console_output.cpp
 
 CMakeFiles/httpserver.dir/logger/log_console_output.cpp.i: cmake_force
@@ -124,7 +98,7 @@ CMakeFiles/httpserver.dir/logger/log_console_output.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/logger/log_file_output.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/logger/log_file_output.cpp.o: ../logger/log_file_output.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/httpserver.dir/logger/log_file_output.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/httpserver.dir/logger/log_file_output.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/logger/log_file_output.cpp.o -c /home/ubuntu/httpserver/logger/log_file_output.cpp
 
 CMakeFiles/httpserver.dir/logger/log_file_output.cpp.i: cmake_force
@@ -137,7 +111,7 @@ CMakeFiles/httpserver.dir/logger/log_file_output.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/logger/logger.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/logger/logger.cpp.o: ../logger/logger.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/httpserver.dir/logger/logger.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/httpserver.dir/logger/logger.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/logger/logger.cpp.o -c /home/ubuntu/httpserver/logger/logger.cpp
 
 CMakeFiles/httpserver.dir/logger/logger.cpp.i: cmake_force
@@ -150,7 +124,7 @@ CMakeFiles/httpserver.dir/logger/logger.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/logger/user_format.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/logger/user_format.cpp.o: ../logger/user_format.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/httpserver.dir/logger/user_format.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/httpserver.dir/logger/user_format.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/logger/user_format.cpp.o -c /home/ubuntu/httpserver/logger/user_format.cpp
 
 CMakeFiles/httpserver.dir/logger/user_format.cpp.i: cmake_force
@@ -163,7 +137,7 @@ CMakeFiles/httpserver.dir/logger/user_format.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/logger/xconfig.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/logger/xconfig.cpp.o: ../logger/xconfig.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/httpserver.dir/logger/xconfig.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/httpserver.dir/logger/xconfig.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/logger/xconfig.cpp.o -c /home/ubuntu/httpserver/logger/xconfig.cpp
 
 CMakeFiles/httpserver.dir/logger/xconfig.cpp.i: cmake_force
@@ -176,7 +150,7 @@ CMakeFiles/httpserver.dir/logger/xconfig.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/logger/xlog_format.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/logger/xlog_format.cpp.o: ../logger/xlog_format.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/httpserver.dir/logger/xlog_format.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/httpserver.dir/logger/xlog_format.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/logger/xlog_format.cpp.o -c /home/ubuntu/httpserver/logger/xlog_format.cpp
 
 CMakeFiles/httpserver.dir/logger/xlog_format.cpp.i: cmake_force
@@ -189,7 +163,7 @@ CMakeFiles/httpserver.dir/logger/xlog_format.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/memory_pool2/centralCache.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/memory_pool2/centralCache.cpp.o: ../memory_pool2/centralCache.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/httpserver.dir/memory_pool2/centralCache.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/httpserver.dir/memory_pool2/centralCache.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/memory_pool2/centralCache.cpp.o -c /home/ubuntu/httpserver/memory_pool2/centralCache.cpp
 
 CMakeFiles/httpserver.dir/memory_pool2/centralCache.cpp.i: cmake_force
@@ -202,7 +176,7 @@ CMakeFiles/httpserver.dir/memory_pool2/centralCache.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/memory_pool2/pageCache.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/memory_pool2/pageCache.cpp.o: ../memory_pool2/pageCache.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/httpserver.dir/memory_pool2/pageCache.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/httpserver.dir/memory_pool2/pageCache.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/memory_pool2/pageCache.cpp.o -c /home/ubuntu/httpserver/memory_pool2/pageCache.cpp
 
 CMakeFiles/httpserver.dir/memory_pool2/pageCache.cpp.i: cmake_force
@@ -215,7 +189,7 @@ CMakeFiles/httpserver.dir/memory_pool2/pageCache.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/memory_pool2/threadcache.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/memory_pool2/threadcache.cpp.o: ../memory_pool2/threadcache.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/httpserver.dir/memory_pool2/threadcache.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/httpserver.dir/memory_pool2/threadcache.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/memory_pool2/threadcache.cpp.o -c /home/ubuntu/httpserver/memory_pool2/threadcache.cpp
 
 CMakeFiles/httpserver.dir/memory_pool2/threadcache.cpp.i: cmake_force
@@ -228,7 +202,7 @@ CMakeFiles/httpserver.dir/memory_pool2/threadcache.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/mysql/User.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/mysql/User.cpp.o: ../mysql/User.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/httpserver.dir/mysql/User.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/httpserver.dir/mysql/User.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/mysql/User.cpp.o -c /home/ubuntu/httpserver/mysql/User.cpp
 
 CMakeFiles/httpserver.dir/mysql/User.cpp.i: cmake_force
@@ -241,7 +215,7 @@ CMakeFiles/httpserver.dir/mysql/User.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/mysql/sqlconnpool.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/mysql/sqlconnpool.cpp.o: ../mysql/sqlconnpool.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/httpserver.dir/mysql/sqlconnpool.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/httpserver.dir/mysql/sqlconnpool.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/mysql/sqlconnpool.cpp.o -c /home/ubuntu/httpserver/mysql/sqlconnpool.cpp
 
 CMakeFiles/httpserver.dir/mysql/sqlconnpool.cpp.i: cmake_force
@@ -254,7 +228,7 @@ CMakeFiles/httpserver.dir/mysql/sqlconnpool.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/reactor/Acceptor.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/reactor/Acceptor.cpp.o: ../reactor/Acceptor.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/httpserver.dir/reactor/Acceptor.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/httpserver.dir/reactor/Acceptor.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/reactor/Acceptor.cpp.o -c /home/ubuntu/httpserver/reactor/Acceptor.cpp
 
 CMakeFiles/httpserver.dir/reactor/Acceptor.cpp.i: cmake_force
@@ -267,7 +241,7 @@ CMakeFiles/httpserver.dir/reactor/Acceptor.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/reactor/Buffer.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/reactor/Buffer.cpp.o: ../reactor/Buffer.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/httpserver.dir/reactor/Buffer.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/httpserver.dir/reactor/Buffer.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/reactor/Buffer.cpp.o -c /home/ubuntu/httpserver/reactor/Buffer.cpp
 
 CMakeFiles/httpserver.dir/reactor/Buffer.cpp.i: cmake_force
@@ -280,7 +254,7 @@ CMakeFiles/httpserver.dir/reactor/Buffer.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/reactor/Channel.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/reactor/Channel.cpp.o: ../reactor/Channel.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/httpserver.dir/reactor/Channel.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/httpserver.dir/reactor/Channel.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/reactor/Channel.cpp.o -c /home/ubuntu/httpserver/reactor/Channel.cpp
 
 CMakeFiles/httpserver.dir/reactor/Channel.cpp.i: cmake_force
@@ -293,7 +267,7 @@ CMakeFiles/httpserver.dir/reactor/Channel.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/reactor/Connection.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/reactor/Connection.cpp.o: ../reactor/Connection.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/httpserver.dir/reactor/Connection.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/httpserver.dir/reactor/Connection.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/reactor/Connection.cpp.o -c /home/ubuntu/httpserver/reactor/Connection.cpp
 
 CMakeFiles/httpserver.dir/reactor/Connection.cpp.i: cmake_force
@@ -306,7 +280,7 @@ CMakeFiles/httpserver.dir/reactor/Connection.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/reactor/Epoll.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/reactor/Epoll.cpp.o: ../reactor/Epoll.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object CMakeFiles/httpserver.dir/reactor/Epoll.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/httpserver.dir/reactor/Epoll.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/reactor/Epoll.cpp.o -c /home/ubuntu/httpserver/reactor/Epoll.cpp
 
 CMakeFiles/httpserver.dir/reactor/Epoll.cpp.i: cmake_force
@@ -319,7 +293,7 @@ CMakeFiles/httpserver.dir/reactor/Epoll.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/reactor/Eventloop.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/reactor/Eventloop.cpp.o: ../reactor/Eventloop.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/httpserver.dir/reactor/Eventloop.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/httpserver.dir/reactor/Eventloop.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/reactor/Eventloop.cpp.o -c /home/ubuntu/httpserver/reactor/Eventloop.cpp
 
 CMakeFiles/httpserver.dir/reactor/Eventloop.cpp.i: cmake_force
@@ -332,7 +306,7 @@ CMakeFiles/httpserver.dir/reactor/Eventloop.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/reactor/HttpServer.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/reactor/HttpServer.cpp.o: ../reactor/HttpServer.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object CMakeFiles/httpserver.dir/reactor/HttpServer.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object CMakeFiles/httpserver.dir/reactor/HttpServer.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/reactor/HttpServer.cpp.o -c /home/ubuntu/httpserver/reactor/HttpServer.cpp
 
 CMakeFiles/httpserver.dir/reactor/HttpServer.cpp.i: cmake_force
@@ -345,7 +319,7 @@ CMakeFiles/httpserver.dir/reactor/HttpServer.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/reactor/InetAddress.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/reactor/InetAddress.cpp.o: ../reactor/InetAddress.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object CMakeFiles/httpserver.dir/reactor/InetAddress.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/httpserver.dir/reactor/InetAddress.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/reactor/InetAddress.cpp.o -c /home/ubuntu/httpserver/reactor/InetAddress.cpp
 
 CMakeFiles/httpserver.dir/reactor/InetAddress.cpp.i: cmake_force
@@ -358,7 +332,7 @@ CMakeFiles/httpserver.dir/reactor/InetAddress.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/reactor/Socket.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/reactor/Socket.cpp.o: ../reactor/Socket.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object CMakeFiles/httpserver.dir/reactor/Socket.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object CMakeFiles/httpserver.dir/reactor/Socket.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/reactor/Socket.cpp.o -c /home/ubuntu/httpserver/reactor/Socket.cpp
 
 CMakeFiles/httpserver.dir/reactor/Socket.cpp.i: cmake_force
@@ -371,7 +345,7 @@ CMakeFiles/httpserver.dir/reactor/Socket.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/reactor/tcpserver.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/reactor/tcpserver.cpp.o: ../reactor/tcpserver.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object CMakeFiles/httpserver.dir/reactor/tcpserver.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object CMakeFiles/httpserver.dir/reactor/tcpserver.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/reactor/tcpserver.cpp.o -c /home/ubuntu/httpserver/reactor/tcpserver.cpp
 
 CMakeFiles/httpserver.dir/reactor/tcpserver.cpp.i: cmake_force
@@ -384,7 +358,7 @@ CMakeFiles/httpserver.dir/reactor/tcpserver.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/reactor/ThreadPool.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/reactor/ThreadPool.cpp.o: ../reactor/ThreadPool.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object CMakeFiles/httpserver.dir/reactor/ThreadPool.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object CMakeFiles/httpserver.dir/reactor/ThreadPool.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/reactor/ThreadPool.cpp.o -c /home/ubuntu/httpserver/reactor/ThreadPool.cpp
 
 CMakeFiles/httpserver.dir/reactor/ThreadPool.cpp.i: cmake_force
@@ -397,7 +371,7 @@ CMakeFiles/httpserver.dir/reactor/ThreadPool.cpp.s: cmake_force
 
 CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.o: CMakeFiles/httpserver.dir/flags.make
 CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.o: ../timer/TimeWheel.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.o -c /home/ubuntu/httpserver/timer/TimeWheel.cpp
 
 CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.i: cmake_force
@@ -408,11 +382,191 @@ CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/timer/TimeWheel.cpp -o CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.s
 
+CMakeFiles/httpserver.dir/services/src/AuthService.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/services/src/AuthService.cpp.o: ../services/src/AuthService.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object CMakeFiles/httpserver.dir/services/src/AuthService.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/services/src/AuthService.cpp.o -c /home/ubuntu/httpserver/services/src/AuthService.cpp
+
+CMakeFiles/httpserver.dir/services/src/AuthService.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/services/src/AuthService.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/services/src/AuthService.cpp > CMakeFiles/httpserver.dir/services/src/AuthService.cpp.i
+
+CMakeFiles/httpserver.dir/services/src/AuthService.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/services/src/AuthService.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/services/src/AuthService.cpp -o CMakeFiles/httpserver.dir/services/src/AuthService.cpp.s
+
+CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.o: ../services/src/DownloadService.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.o -c /home/ubuntu/httpserver/services/src/DownloadService.cpp
+
+CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/services/src/DownloadService.cpp > CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.i
+
+CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/services/src/DownloadService.cpp -o CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.s
+
+CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.o: ../services/src/StaticFileService.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Building CXX object CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.o -c /home/ubuntu/httpserver/services/src/StaticFileService.cpp
+
+CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/services/src/StaticFileService.cpp > CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.i
+
+CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/services/src/StaticFileService.cpp -o CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.s
+
+CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.o: ../views/src/ErrorHandler.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_29) "Building CXX object CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.o -c /home/ubuntu/httpserver/views/src/ErrorHandler.cpp
+
+CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/views/src/ErrorHandler.cpp > CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.i
+
+CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/views/src/ErrorHandler.cpp -o CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.s
+
+CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.o: ../views/src/NotFoundHandler.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_30) "Building CXX object CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.o -c /home/ubuntu/httpserver/views/src/NotFoundHandler.cpp
+
+CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/views/src/NotFoundHandler.cpp > CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.i
+
+CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/views/src/NotFoundHandler.cpp -o CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.s
+
+CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.o: ../views/src/MethodNotAllowedHandler.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_31) "Building CXX object CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.o -c /home/ubuntu/httpserver/views/src/MethodNotAllowedHandler.cpp
+
+CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/views/src/MethodNotAllowedHandler.cpp > CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.i
+
+CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/views/src/MethodNotAllowedHandler.cpp -o CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.s
+
+CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.o: ../views/src/BadRequestHandler.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_32) "Building CXX object CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.o -c /home/ubuntu/httpserver/views/src/BadRequestHandler.cpp
+
+CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/views/src/BadRequestHandler.cpp > CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.i
+
+CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/views/src/BadRequestHandler.cpp -o CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.s
+
+CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.o: ../views/src/ForbiddenHandler.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Building CXX object CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.o -c /home/ubuntu/httpserver/views/src/ForbiddenHandler.cpp
+
+CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/views/src/ForbiddenHandler.cpp > CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.i
+
+CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/views/src/ForbiddenHandler.cpp -o CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.s
+
+CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.o: ../views/src/WelcomePageHandler.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Building CXX object CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.o -c /home/ubuntu/httpserver/views/src/WelcomePageHandler.cpp
+
+CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/views/src/WelcomePageHandler.cpp > CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.i
+
+CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/views/src/WelcomePageHandler.cpp -o CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.s
+
+CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.o: ../views/src/IndexPageHandler.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_35) "Building CXX object CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.o -c /home/ubuntu/httpserver/views/src/IndexPageHandler.cpp
+
+CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/views/src/IndexPageHandler.cpp > CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.i
+
+CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/views/src/IndexPageHandler.cpp -o CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.s
+
+CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.o: ../views/src/LoginPageHandler.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_36) "Building CXX object CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.o -c /home/ubuntu/httpserver/views/src/LoginPageHandler.cpp
+
+CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/views/src/LoginPageHandler.cpp > CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.i
+
+CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/views/src/LoginPageHandler.cpp -o CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.s
+
+CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.o: ../views/src/RegisterPageHandler.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_37) "Building CXX object CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.o -c /home/ubuntu/httpserver/views/src/RegisterPageHandler.cpp
+
+CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/views/src/RegisterPageHandler.cpp > CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.i
+
+CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/views/src/RegisterPageHandler.cpp -o CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.s
+
+CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.o: ../views/src/PicturePageHandler.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_38) "Building CXX object CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.o -c /home/ubuntu/httpserver/views/src/PicturePageHandler.cpp
+
+CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/views/src/PicturePageHandler.cpp > CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.i
+
+CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/views/src/PicturePageHandler.cpp -o CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.s
+
+CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.o: CMakeFiles/httpserver.dir/flags.make
+CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.o: ../views/src/VideoPageHandler.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_39) "Building CXX object CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.o -c /home/ubuntu/httpserver/views/src/VideoPageHandler.cpp
+
+CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/httpserver/views/src/VideoPageHandler.cpp > CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.i
+
+CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/httpserver/views/src/VideoPageHandler.cpp -o CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.s
+
 # Object files for target httpserver
 httpserver_OBJECTS = \
 "CMakeFiles/httpserver.dir/reactor/main.cpp.o" \
-"CMakeFiles/httpserver.dir/http/httprequest.cpp.o" \
-"CMakeFiles/httpserver.dir/http/httpresponse.cpp.o" \
 "CMakeFiles/httpserver.dir/logger/log_fac.cpp.o" \
 "CMakeFiles/httpserver.dir/logger/log_console_output.cpp.o" \
 "CMakeFiles/httpserver.dir/logger/log_file_output.cpp.o" \
@@ -436,14 +590,26 @@ httpserver_OBJECTS = \
 "CMakeFiles/httpserver.dir/reactor/Socket.cpp.o" \
 "CMakeFiles/httpserver.dir/reactor/tcpserver.cpp.o" \
 "CMakeFiles/httpserver.dir/reactor/ThreadPool.cpp.o" \
-"CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.o"
+"CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.o" \
+"CMakeFiles/httpserver.dir/services/src/AuthService.cpp.o" \
+"CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.o" \
+"CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.o" \
+"CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.o" \
+"CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.o" \
+"CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.o" \
+"CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.o" \
+"CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.o" \
+"CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.o" \
+"CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.o" \
+"CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.o" \
+"CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.o" \
+"CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.o" \
+"CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.o"
 
 # External object files for target httpserver
 httpserver_EXTERNAL_OBJECTS =
 
 httpserver: CMakeFiles/httpserver.dir/reactor/main.cpp.o
-httpserver: CMakeFiles/httpserver.dir/http/httprequest.cpp.o
-httpserver: CMakeFiles/httpserver.dir/http/httpresponse.cpp.o
 httpserver: CMakeFiles/httpserver.dir/logger/log_fac.cpp.o
 httpserver: CMakeFiles/httpserver.dir/logger/log_console_output.cpp.o
 httpserver: CMakeFiles/httpserver.dir/logger/log_file_output.cpp.o
@@ -468,10 +634,27 @@ httpserver: CMakeFiles/httpserver.dir/reactor/Socket.cpp.o
 httpserver: CMakeFiles/httpserver.dir/reactor/tcpserver.cpp.o
 httpserver: CMakeFiles/httpserver.dir/reactor/ThreadPool.cpp.o
 httpserver: CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.o
+httpserver: CMakeFiles/httpserver.dir/services/src/AuthService.cpp.o
+httpserver: CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.o
+httpserver: CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.o
+httpserver: CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.o
+httpserver: CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.o
+httpserver: CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.o
+httpserver: CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.o
+httpserver: CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.o
+httpserver: CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.o
+httpserver: CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.o
+httpserver: CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.o
+httpserver: CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.o
+httpserver: CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.o
+httpserver: CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.o
 httpserver: CMakeFiles/httpserver.dir/build.make
+httpserver: http/src/libhttp.a
 httpserver: /usr/lib/x86_64-linux-gnu/libmysqlclient.so
+httpserver: /usr/lib/x86_64-linux-gnu/libssl.so
+httpserver: /usr/lib/x86_64-linux-gnu/libcrypto.so
 httpserver: CMakeFiles/httpserver.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Linking CXX executable httpserver"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/httpserver/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_40) "Linking CXX executable httpserver"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/httpserver.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

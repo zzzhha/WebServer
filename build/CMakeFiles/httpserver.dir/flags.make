@@ -6,5 +6,5 @@ CXX_FLAGS =  -Wall -Wextra -pthread   -std=gnu++17
 
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/usr/include/mysql -I/home/ubuntu/httpserver/. -I/home/ubuntu/httpserver/http -I/home/ubuntu/httpserver/logger -I/home/ubuntu/httpserver/memory_pool -I/home/ubuntu/httpserver/mysql -I/home/ubuntu/httpserver/reactor -I/home/ubuntu/httpserver/timer 
+CXX_INCLUDES = -I/usr/include/mysql -I/home/ubuntu/httpserver/. -I/home/ubuntu/httpserver/http -I/home/ubuntu/httpserver/logger -I/home/ubuntu/httpserver/memory_pool -I/home/ubuntu/httpserver/mysql -I/home/ubuntu/httpserver/reactor -I/home/ubuntu/httpserver/timer -I/home/ubuntu/httpserver/http/include -I/home/ubuntu/httpserver/services/include -I/home/ubuntu/httpserver/views/include -I/home/ubuntu/httpserver/http/src/../../include -I/home/ubuntu/httpserver 
 

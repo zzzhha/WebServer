@@ -299,12 +299,10 @@
         downloadBtns.forEach(btn => {
             btn.addEventListener('click', function() {
                 const fileName = this.getAttribute('data-file');
-                fetch('/download', { // 后端下载接口，需处理 images 文件夹
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ fileName, folder: 'images' })
+                // 使用GET请求，路径格式：/download/images/filename
+                const downloadUrl = `/download/images/${fileName}`;
+                fetch(downloadUrl, {
+                    method: 'GET'
                 })
                 .then(response => {
                     if (response.ok) return response.blob();

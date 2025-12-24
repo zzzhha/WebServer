@@ -27,7 +27,7 @@ private:
   std::function<void(spConnection)> newconnectioncb_;      //回调HttpServer::HandleNewConnection()
   std::function<void(spConnection)> closeconnectioncb_;    //回调HttpServer::HandleClose()
   std::function<void(spConnection)> errorconnectioncb_;    //回调HttpServer::HandleError()
-  std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,std::string&*/)> onmessagecb_;   //回调HttpServer::HandleMessage()
+  std::function<void(spConnection/*,BufferBlock&*/)> onmessagecb_;   //回调HttpServer::HandleMessage()
   std::function<void(spConnection)> sendcompletecb_;       //回调HttpServer::HandleSendComplete()
   std::function<void(EventLoop*)> timeoutcb_;            //回调HttpServer::HandleTimeOut()
   LogFac& log;
@@ -48,14 +48,14 @@ public:
   void newconnection(std::unique_ptr<Socket> clientsock); //处理新客户端的连接请求,在Acceptor类回调此函数
   void closeconnection(spConnection conn); //关闭客户端的连接，在Connection类中回调此函数
   void errorconnection(spConnection conn); //客户端的连接错误，在Connection类中回调此函数
-  void message(spConnection conn/*暂且先注释了等后面需要用到工作线程在开出来, std::string& buf*/); //处理客户端的请求报文，在Connection类回调此函数
+  void message(spConnection conn/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock*/); //处理客户端的请求报文，在Connection类回调此函数
   void sendcomplete(spConnection conn);     //数据发送完成后，在Connection类中回调此函数
   void epolltimeout(EventLoop*loop);      //epoll_wait()超时，在EventLoop类中回调此函数
 
   void setnewconnection(std::function<void(spConnection)>);      
   void setcloseconnection(std::function<void(spConnection)>);    
   void seterrorconnection(std::function<void(spConnection)>);    
-  void setonmessage(std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,std::string&*/)>);   
+  void setonmessage(std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock*/)>);   
   void setsendcomplete(std::function<void(spConnection)>);       
   
   //时间戳

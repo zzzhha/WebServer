@@ -63,6 +63,12 @@ public:
   size_t check_pos_;
   BufferBlock();
   ~BufferBlock();
+  
+  BufferBlock(const BufferBlock&)=delete;
+  BufferBlock& operator=(const BufferBlock&)=delete;
+  
+  BufferBlock(BufferBlock&& rhs)noexcept;
+  BufferBlock& operator=(BufferBlock&& rhs)noexcept;
   void append(const char* data,size_t size);    //将数据追加到buf_中
   void append(std::string&str);
   size_t readableBytes() const;                                //返回整体大小
@@ -75,5 +81,5 @@ public:
   void consumeBytes(size_t size);
   void readBytes(char* dest, size_t n);
   size_t getIOVecs(struct iovec* iovs, size_t max_count, size_t start_pos = 0) const;
-  std::string bufferToString() const;
+  std::string bufferToString();
 };

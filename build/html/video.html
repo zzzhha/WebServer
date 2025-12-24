@@ -275,13 +275,11 @@
         });
 
         function downloadVideo(videoName) {
-            // 向后端发送POST请求，下载video文件夹内的视频
-            fetch('/download', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ fileName: videoName, folder: 'video' })
+            // 向后端发送GET请求，下载video文件夹内的视频
+            // 使用路径格式：/download/video/filename
+            const downloadUrl = `/download/video/${videoName}`;
+            fetch(downloadUrl, {
+                method: 'GET'
             })
             .then(response => {
                 if (response.ok) return response.blob();

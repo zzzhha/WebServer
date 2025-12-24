@@ -1,3 +1,9 @@
 /home/ubuntu/httpserver/build/CMakeFiles/rebuild_cache.dir
 /home/ubuntu/httpserver/build/CMakeFiles/edit_cache.dir
+/home/ubuntu/httpserver/build/CMakeFiles/AuthServiceTest.dir
 /home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir
+/home/ubuntu/httpserver/build/http/CMakeFiles/rebuild_cache.dir
+/home/ubuntu/httpserver/build/http/CMakeFiles/edit_cache.dir
+/home/ubuntu/httpserver/build/http/src/CMakeFiles/rebuild_cache.dir
+/home/ubuntu/httpserver/build/http/src/CMakeFiles/edit_cache.dir
+/home/ubuntu/httpserver/build/http/src/CMakeFiles/http.dir

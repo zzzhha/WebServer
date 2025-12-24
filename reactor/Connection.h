@@ -9,8 +9,6 @@
 #include"Eventloop.h"
 #include"Buffer.h"
 #include<memory>
-#include"../http/httprequest.h"
-#include"../http/httpresponse.h"
 //#include"Timestamp.h"
 
 class Connection;
@@ -25,7 +23,7 @@ private:
   std::unique_ptr<Channel> clientchannel_; //connection对应的channel，在构造函数中创建
   std::function<void(spConnection)> closecallback_;  //关闭fd_的回调函数,将回调TcpServer::closeconnection()
   std::function<void(spConnection)> errorcallback_;  //关闭fd_的回调函数,将回调TcpServer::errorconnection()
-  std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,std::string&*/)> onmessagecallback_;  //处理报文的回调函数，将回调TcpServer::message()
+  std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock&*/)> onmessagecallback_;  //处理报文的回调函数，将回调TcpServer::message()
   std::function<void(spConnection)>sendcompletecallback_;   //发送完数据后的回调函数，将回调TcpServer::sendcomplete()
   std::function<void(spConnection)>closetimercallback_;
   std::atomic_bool disconnect_;    //客户端连接是否断开，如果断开设置为true
@@ -36,9 +34,6 @@ private:
   BufferBlock inputbuffer_;       //接收缓冲区
   BufferBlock outputbuffer_;      //发送缓冲区
 
-  HttpRequest request_;           //http报文解析
-  HttpResponse response_;         //http报文应答
-  
   //定时器
   int tc_fd;
   int tc_timer_id{ -1 };
@@ -61,13 +56,20 @@ public:
   //fd_连接错误的回调函数
   void seterrorcallback(std::function<void(spConnection)> fn);
   
-  void setonmessagecallback(std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,std::string&*/)> fn);
+  void setonmessagecallback(std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock&*/)> fn);
   void setsendcompletecallback(std::function<void(spConnection)> fn);
   
   //不管在任何线程中,都是调用此函数发送数据
-  void send(/*const char*data,size_t size*/);
+  void send();
   //发送数据，如果当前线程是IO线程，则直接调用此函数，如果是工作线程则把此函数传给IO线程
   void sendinloop(/*std::shared_ptr<std::string>data*/); 
+
+  // 访问buffer的接口
+  BufferBlock& getInputBuffer() { return inputbuffer_; }
+  BufferBlock& getOutputBuffer() { return outputbuffer_; }
+  
+  // 关闭连接的接口
+  void closeConnection() { closecallback(); }
 
   //时间戳
   ///bool timeout(time_t now,int val); //判断tcp连接是否超时

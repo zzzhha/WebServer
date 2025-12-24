@@ -43,6 +43,9 @@ endif()
 message(STATUS "Found MySQL include dir: ${MYSQL_INCLUDE_DIR}")
 message(STATUS "Found MySQL library: ${MYSQL_LIBRARY}")
 
+# 添加 http 子目录（这会构建 http 库）
+add_subdirectory(http)
+
 # 包含目录
 include_directories(
     ${MYSQL_INCLUDE_DIR}
@@ -53,15 +56,18 @@ include_directories(
     mysql
     reactor
     timer
+    http/include
+    services/include
+    views/include
 )
 
 # HTTP模块源文件
-set(HTTP_SOURCES
-    http/httprequest.cpp
-    http/httprequest.h
-    http/httpresponse.cpp  # 注意：文件名可能是httpresponse.cpp而不是httpssponse.cpp
-    http/httpresponse.h
-)
+#set(HTTP_SOURCES
+#    http/httprequest.cpp
+#    http/httprequest.h
+#    http/httpresponse.cpp  # 注意：文件名可能是httpresponse.cpp而不是httpssponse.cpp
+#    http/httpresponse.h
+#)
 
 # Logger模块源文件
 set(LOGGER_SOURCES
@@ -115,6 +121,28 @@ set(MYSQL_SOURCES
     mysql/sqlConnRAII.h
 )
 
+# Services模块源文件（业务处理层）
+set(SERVICES_SOURCES
+    services/src/AuthService.cpp
+    services/src/DownloadService.cpp
+    services/src/StaticFileService.cpp
+)
+
+# Views模块源文件（界面跳转层）
+set(VIEWS_SOURCES
+    views/src/ErrorHandler.cpp
+    views/src/NotFoundHandler.cpp
+    views/src/MethodNotAllowedHandler.cpp
+    views/src/BadRequestHandler.cpp
+    views/src/ForbiddenHandler.cpp
+    views/src/WelcomePageHandler.cpp
+    views/src/IndexPageHandler.cpp
+    views/src/LoginPageHandler.cpp
+    views/src/RegisterPageHandler.cpp
+    views/src/PicturePageHandler.cpp
+    views/src/VideoPageHandler.cpp
+)
+
 # Reactor模块源文件
 set(REACTOR_SOURCES
     reactor/Acceptor.cpp
@@ -157,10 +185,37 @@ add_executable(${PROJECT_NAME}
     ${MYSQL_SOURCES}
     ${REACTOR_SOURCES}
     ${TIMER_SOURCES}
+    ${SERVICES_SOURCES}
+    ${VIEWS_SOURCES}
 )
 
 # 链接库
 target_link_libraries(${PROJECT_NAME}
+    http  # http 库
+    ${MYSQL_LIBRARY}
+    pthread
+    m
+    rt
+)
+
+# 添加 AuthService 单元测试
+execute_process(COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/services/test
+    RESULT_VARIABLE MKDIR_RESULT
+    OUTPUT_QUIET
+    ERROR_QUIET
+)
+
+add_executable(AuthServiceTest
+    services/src/AuthServiceTest.cpp
+    ${SERVICES_SOURCES}
+    ${MYSQL_SOURCES}
+    ${LOGGER_SOURCES}
+    ${MEMORY_POOL_SOURCES}
+)
+
+# 链接测试所需的库
+target_link_libraries(AuthServiceTest
+    http  # http 库
     ${MYSQL_LIBRARY}
     pthread
     m

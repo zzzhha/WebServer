@@ -7,7 +7,7 @@ void* threadcache::allocate(size_t size){
   if(size ==0){
     size = ALIGNMENT; //  至少分配一个对齐大小
   }
-  if(size > MAXBYTE){
+  if(size > MAXBYTE) {
     return malloc(size);
   }
 

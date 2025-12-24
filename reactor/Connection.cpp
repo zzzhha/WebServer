@@ -96,20 +96,14 @@ LOGDEBUG("准备发送数据");
       clientchannel_->disablewriting();
 LOGDEBUG("发送数据完毕");
       sendcompletecallback_(shared_from_this());
-      if(!request_.IsKeepAlive()){
-LOGDEBUG("不保持连接");
-        closecallback();
-      }
-LOGDEBUG("保持连接");
+
     }
   }else if(nwritten == -1){
     if(errno ==EAGAIN || errno ==EWOULDBLOCK){
       // 正常情况：内核缓冲区已满，下次再试
       return ;
     }else{
-      char buf[128];
-      sprintf(buf, "writev failed, fd: %d, error: %s", fd(), strerror(errno));
-      LOGERROR(buf);
+      LOGERROR("writev failed, fd: "+std::to_string(fd())+" error: "+strerror(errno));
       errorcallback();
     }
   }
@@ -130,40 +124,11 @@ void Connection::onmessage(){
       updatetimercallback_(shared_from_this());
       //时间戳
       //lasttime_=Timestamp::now();
-      size_t original_size =inputbuffer_.readableBytes();
-      request_.Init();
-      if(request_.parse(inputbuffer_)){
-LOGDEBUG("解析请求行完毕");
-        if (request_.path().find("/download")!=std::string::npos && request_.method() == "POST") {
-LOGDEBUG("是下载请求使用json解析下载请求"); 
-          std::string folder = request_.GetPost("folder");
-LOGDEBUG("folder:"+folder);
-          std::string fileName = request_.GetPost("fileName"); 
-LOGDEBUG("fliename: "+fileName);
-          std::string realPath("/" + folder + "/" + fileName);
-          
-          response_.Init("./html",realPath,request_.IsReturnJs(),request_.IsSuccessJs(),request_.IsDownload(),request_.IsKeepAlive());
-        }else{
-          response_.Init("./html",request_.path(),request_.IsReturnJs(),request_.IsSuccessJs() ,request_.IsDownload(),request_.IsKeepAlive());
-        }
-LOGDEBUG("path: "+request_.path());
-        response_.MakeResponse(outputbuffer_);
-        if(response_.File()!= nullptr){
-          outputbuffer_.append(response_.File(),response_.FileLen());
-        }
-      send();
-      //使用工作线程来处理业务
-      onmessagecallback_(shared_from_this()/*暂且先注释了等后面需要用到工作线程在开出来,message*/); //回调TcpServer::message()
-      } else {
-        // 解析失败（可能数据不完整）
-        if (inputbuffer_.readableBytes() == original_size){
-          // 没有消费任何数据，说明数据完全不匹配
-          LOGERROR("HTTP request format error");
-        } else{
-          // 消费了部分数据，等待更多数据
-          LOGINFO("HTTP request incomplete, waiting for more data");
-        } 
-      }  
+      
+      // 数据读取完毕，交给上层处理
+      if(onmessagecallback_) {
+        onmessagecallback_(shared_from_this());
+      }
       break;
     }else if(nread==0){
 LOGDEBUG("对方断开调用关闭");
@@ -180,7 +145,7 @@ void Connection::seterrorcallback(std::function<void(spConnection)> fn){
   errorcallback_=fn;
 }
 
-void Connection::setonmessagecallback(std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,std::string&*/)> fn){
+void Connection::setonmessagecallback(std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock&*/)> fn){
   onmessagecallback_=fn;
 }
 void Connection::setsendcompletecallback(std::function<void(spConnection)> fn){

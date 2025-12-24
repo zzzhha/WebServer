@@ -396,3 +396,10 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+aiagentbuild
+cunchutong
+.vscode
+build/
+test/
+webbench/

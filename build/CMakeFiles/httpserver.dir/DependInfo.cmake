@@ -4,8 +4,6 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/ubuntu/httpserver/http/httprequest.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/http/httprequest.cpp.o"
-  "/home/ubuntu/httpserver/http/httpresponse.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/http/httpresponse.cpp.o"
   "/home/ubuntu/httpserver/logger/log_console_output.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/logger/log_console_output.cpp.o"
   "/home/ubuntu/httpserver/logger/log_fac.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/logger/log_fac.cpp.o"
   "/home/ubuntu/httpserver/logger/log_file_output.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/logger/log_file_output.cpp.o"
@@ -30,7 +28,21 @@ set(CMAKE_DEPENDS_CHECK_CXX
   "/home/ubuntu/httpserver/reactor/ThreadPool.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/reactor/ThreadPool.cpp.o"
   "/home/ubuntu/httpserver/reactor/main.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/reactor/main.cpp.o"
   "/home/ubuntu/httpserver/reactor/tcpserver.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/reactor/tcpserver.cpp.o"
+  "/home/ubuntu/httpserver/services/src/AuthService.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/services/src/AuthService.cpp.o"
+  "/home/ubuntu/httpserver/services/src/DownloadService.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.o"
+  "/home/ubuntu/httpserver/services/src/StaticFileService.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.o"
   "/home/ubuntu/httpserver/timer/TimeWheel.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.o"
+  "/home/ubuntu/httpserver/views/src/BadRequestHandler.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.o"
+  "/home/ubuntu/httpserver/views/src/ErrorHandler.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.o"
+  "/home/ubuntu/httpserver/views/src/ForbiddenHandler.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.o"
+  "/home/ubuntu/httpserver/views/src/IndexPageHandler.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.o"
+  "/home/ubuntu/httpserver/views/src/LoginPageHandler.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.o"
+  "/home/ubuntu/httpserver/views/src/MethodNotAllowedHandler.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.o"
+  "/home/ubuntu/httpserver/views/src/NotFoundHandler.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.o"
+  "/home/ubuntu/httpserver/views/src/PicturePageHandler.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.o"
+  "/home/ubuntu/httpserver/views/src/RegisterPageHandler.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.o"
+  "/home/ubuntu/httpserver/views/src/VideoPageHandler.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.o"
+  "/home/ubuntu/httpserver/views/src/WelcomePageHandler.cpp" "/home/ubuntu/httpserver/build/CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 
@@ -44,10 +56,16 @@ set(CMAKE_CXX_TARGET_INCLUDE_PATH
   "../mysql"
   "../reactor"
   "../timer"
+  "../http/include"
+  "../services/include"
+  "../views/include"
+  "../http/src/../../include"
+  "../"
   )
 
 # Targets to which this target links.
 set(CMAKE_TARGET_LINKED_INFO_FILES
+  "/home/ubuntu/httpserver/build/http/src/CMakeFiles/http.dir/DependInfo.cmake"
   )
 
 # Fortran module output directory.

@@ -111,6 +111,19 @@ depend:
 .PHONY : depend
 
 #=============================================================================
+# Target rules for targets named AuthServiceTest
+
+# Build rule for target.
+AuthServiceTest: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 AuthServiceTest
+.PHONY : AuthServiceTest
+
+# fast build rule for target.
+AuthServiceTest/fast:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/build
+.PHONY : AuthServiceTest/fast
+
+#=============================================================================
 # Target rules for targets named httpserver
 
 # Build rule for target.
@@ -123,59 +136,18 @@ httpserver/fast:
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/build
 .PHONY : httpserver/fast
 
-http/httprequest.o: http/httprequest.cpp.o
+#=============================================================================
+# Target rules for targets named http
 
-.PHONY : http/httprequest.o
+# Build rule for target.
+http: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 http
+.PHONY : http
 
-# target to build an object file
-http/httprequest.cpp.o:
-	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/http/httprequest.cpp.o
-.PHONY : http/httprequest.cpp.o
-
-http/httprequest.i: http/httprequest.cpp.i
-
-.PHONY : http/httprequest.i
-
-# target to preprocess a source file
-http/httprequest.cpp.i:
-	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/http/httprequest.cpp.i
-.PHONY : http/httprequest.cpp.i
-
-http/httprequest.s: http/httprequest.cpp.s
-
-.PHONY : http/httprequest.s
-
-# target to generate assembly for a file
-http/httprequest.cpp.s:
-	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/http/httprequest.cpp.s
-.PHONY : http/httprequest.cpp.s
-
-http/httpresponse.o: http/httpresponse.cpp.o
-
-.PHONY : http/httpresponse.o
-
-# target to build an object file
-http/httpresponse.cpp.o:
-	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/http/httpresponse.cpp.o
-.PHONY : http/httpresponse.cpp.o
-
-http/httpresponse.i: http/httpresponse.cpp.i
-
-.PHONY : http/httpresponse.i
-
-# target to preprocess a source file
-http/httpresponse.cpp.i:
-	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/http/httpresponse.cpp.i
-.PHONY : http/httpresponse.cpp.i
-
-http/httpresponse.s: http/httpresponse.cpp.s
-
-.PHONY : http/httpresponse.s
-
-# target to generate assembly for a file
-http/httpresponse.cpp.s:
-	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/http/httpresponse.cpp.s
-.PHONY : http/httpresponse.cpp.s
+# fast build rule for target.
+http/fast:
+	$(MAKE) -f http/src/CMakeFiles/http.dir/build.make http/src/CMakeFiles/http.dir/build
+.PHONY : http/fast
 
 logger/log_console_output.o: logger/log_console_output.cpp.o
 
@@ -183,6 +155,7 @@ logger/log_console_output.o: logger/log_console_output.cpp.o
 
 # target to build an object file
 logger/log_console_output.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/log_console_output.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/log_console_output.cpp.o
 .PHONY : logger/log_console_output.cpp.o
 
@@ -192,6 +165,7 @@ logger/log_console_output.i: logger/log_console_output.cpp.i
 
 # target to preprocess a source file
 logger/log_console_output.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/log_console_output.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/log_console_output.cpp.i
 .PHONY : logger/log_console_output.cpp.i
 
@@ -201,6 +175,7 @@ logger/log_console_output.s: logger/log_console_output.cpp.s
 
 # target to generate assembly for a file
 logger/log_console_output.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/log_console_output.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/log_console_output.cpp.s
 .PHONY : logger/log_console_output.cpp.s
 
@@ -210,6 +185,7 @@ logger/log_fac.o: logger/log_fac.cpp.o
 
 # target to build an object file
 logger/log_fac.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/log_fac.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/log_fac.cpp.o
 .PHONY : logger/log_fac.cpp.o
 
@@ -219,6 +195,7 @@ logger/log_fac.i: logger/log_fac.cpp.i
 
 # target to preprocess a source file
 logger/log_fac.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/log_fac.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/log_fac.cpp.i
 .PHONY : logger/log_fac.cpp.i
 
@@ -228,6 +205,7 @@ logger/log_fac.s: logger/log_fac.cpp.s
 
 # target to generate assembly for a file
 logger/log_fac.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/log_fac.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/log_fac.cpp.s
 .PHONY : logger/log_fac.cpp.s
 
@@ -237,6 +215,7 @@ logger/log_file_output.o: logger/log_file_output.cpp.o
 
 # target to build an object file
 logger/log_file_output.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/log_file_output.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/log_file_output.cpp.o
 .PHONY : logger/log_file_output.cpp.o
 
@@ -246,6 +225,7 @@ logger/log_file_output.i: logger/log_file_output.cpp.i
 
 # target to preprocess a source file
 logger/log_file_output.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/log_file_output.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/log_file_output.cpp.i
 .PHONY : logger/log_file_output.cpp.i
 
@@ -255,6 +235,7 @@ logger/log_file_output.s: logger/log_file_output.cpp.s
 
 # target to generate assembly for a file
 logger/log_file_output.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/log_file_output.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/log_file_output.cpp.s
 .PHONY : logger/log_file_output.cpp.s
 
@@ -264,6 +245,7 @@ logger/logger.o: logger/logger.cpp.o
 
 # target to build an object file
 logger/logger.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/logger.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/logger.cpp.o
 .PHONY : logger/logger.cpp.o
 
@@ -273,6 +255,7 @@ logger/logger.i: logger/logger.cpp.i
 
 # target to preprocess a source file
 logger/logger.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/logger.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/logger.cpp.i
 .PHONY : logger/logger.cpp.i
 
@@ -282,6 +265,7 @@ logger/logger.s: logger/logger.cpp.s
 
 # target to generate assembly for a file
 logger/logger.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/logger.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/logger.cpp.s
 .PHONY : logger/logger.cpp.s
 
@@ -291,6 +275,7 @@ logger/user_format.o: logger/user_format.cpp.o
 
 # target to build an object file
 logger/user_format.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/user_format.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/user_format.cpp.o
 .PHONY : logger/user_format.cpp.o
 
@@ -300,6 +285,7 @@ logger/user_format.i: logger/user_format.cpp.i
 
 # target to preprocess a source file
 logger/user_format.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/user_format.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/user_format.cpp.i
 .PHONY : logger/user_format.cpp.i
 
@@ -309,6 +295,7 @@ logger/user_format.s: logger/user_format.cpp.s
 
 # target to generate assembly for a file
 logger/user_format.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/user_format.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/user_format.cpp.s
 .PHONY : logger/user_format.cpp.s
 
@@ -318,6 +305,7 @@ logger/xconfig.o: logger/xconfig.cpp.o
 
 # target to build an object file
 logger/xconfig.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/xconfig.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/xconfig.cpp.o
 .PHONY : logger/xconfig.cpp.o
 
@@ -327,6 +315,7 @@ logger/xconfig.i: logger/xconfig.cpp.i
 
 # target to preprocess a source file
 logger/xconfig.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/xconfig.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/xconfig.cpp.i
 .PHONY : logger/xconfig.cpp.i
 
@@ -336,6 +325,7 @@ logger/xconfig.s: logger/xconfig.cpp.s
 
 # target to generate assembly for a file
 logger/xconfig.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/xconfig.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/xconfig.cpp.s
 .PHONY : logger/xconfig.cpp.s
 
@@ -345,6 +335,7 @@ logger/xlog_format.o: logger/xlog_format.cpp.o
 
 # target to build an object file
 logger/xlog_format.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/xlog_format.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/xlog_format.cpp.o
 .PHONY : logger/xlog_format.cpp.o
 
@@ -354,6 +345,7 @@ logger/xlog_format.i: logger/xlog_format.cpp.i
 
 # target to preprocess a source file
 logger/xlog_format.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/xlog_format.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/xlog_format.cpp.i
 .PHONY : logger/xlog_format.cpp.i
 
@@ -363,6 +355,7 @@ logger/xlog_format.s: logger/xlog_format.cpp.s
 
 # target to generate assembly for a file
 logger/xlog_format.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/logger/xlog_format.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/logger/xlog_format.cpp.s
 .PHONY : logger/xlog_format.cpp.s
 
@@ -372,6 +365,7 @@ memory_pool2/centralCache.o: memory_pool2/centralCache.cpp.o
 
 # target to build an object file
 memory_pool2/centralCache.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/memory_pool2/centralCache.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/memory_pool2/centralCache.cpp.o
 .PHONY : memory_pool2/centralCache.cpp.o
 
@@ -381,6 +375,7 @@ memory_pool2/centralCache.i: memory_pool2/centralCache.cpp.i
 
 # target to preprocess a source file
 memory_pool2/centralCache.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/memory_pool2/centralCache.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/memory_pool2/centralCache.cpp.i
 .PHONY : memory_pool2/centralCache.cpp.i
 
@@ -390,6 +385,7 @@ memory_pool2/centralCache.s: memory_pool2/centralCache.cpp.s
 
 # target to generate assembly for a file
 memory_pool2/centralCache.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/memory_pool2/centralCache.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/memory_pool2/centralCache.cpp.s
 .PHONY : memory_pool2/centralCache.cpp.s
 
@@ -399,6 +395,7 @@ memory_pool2/pageCache.o: memory_pool2/pageCache.cpp.o
 
 # target to build an object file
 memory_pool2/pageCache.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/memory_pool2/pageCache.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/memory_pool2/pageCache.cpp.o
 .PHONY : memory_pool2/pageCache.cpp.o
 
@@ -408,6 +405,7 @@ memory_pool2/pageCache.i: memory_pool2/pageCache.cpp.i
 
 # target to preprocess a source file
 memory_pool2/pageCache.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/memory_pool2/pageCache.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/memory_pool2/pageCache.cpp.i
 .PHONY : memory_pool2/pageCache.cpp.i
 
@@ -417,6 +415,7 @@ memory_pool2/pageCache.s: memory_pool2/pageCache.cpp.s
 
 # target to generate assembly for a file
 memory_pool2/pageCache.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/memory_pool2/pageCache.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/memory_pool2/pageCache.cpp.s
 .PHONY : memory_pool2/pageCache.cpp.s
 
@@ -426,6 +425,7 @@ memory_pool2/threadcache.o: memory_pool2/threadcache.cpp.o
 
 # target to build an object file
 memory_pool2/threadcache.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/memory_pool2/threadcache.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/memory_pool2/threadcache.cpp.o
 .PHONY : memory_pool2/threadcache.cpp.o
 
@@ -435,6 +435,7 @@ memory_pool2/threadcache.i: memory_pool2/threadcache.cpp.i
 
 # target to preprocess a source file
 memory_pool2/threadcache.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/memory_pool2/threadcache.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/memory_pool2/threadcache.cpp.i
 .PHONY : memory_pool2/threadcache.cpp.i
 
@@ -444,6 +445,7 @@ memory_pool2/threadcache.s: memory_pool2/threadcache.cpp.s
 
 # target to generate assembly for a file
 memory_pool2/threadcache.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/memory_pool2/threadcache.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/memory_pool2/threadcache.cpp.s
 .PHONY : memory_pool2/threadcache.cpp.s
 
@@ -453,6 +455,7 @@ mysql/User.o: mysql/User.cpp.o
 
 # target to build an object file
 mysql/User.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/mysql/User.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/mysql/User.cpp.o
 .PHONY : mysql/User.cpp.o
 
@@ -462,6 +465,7 @@ mysql/User.i: mysql/User.cpp.i
 
 # target to preprocess a source file
 mysql/User.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/mysql/User.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/mysql/User.cpp.i
 .PHONY : mysql/User.cpp.i
 
@@ -471,6 +475,7 @@ mysql/User.s: mysql/User.cpp.s
 
 # target to generate assembly for a file
 mysql/User.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/mysql/User.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/mysql/User.cpp.s
 .PHONY : mysql/User.cpp.s
 
@@ -480,6 +485,7 @@ mysql/sqlconnpool.o: mysql/sqlconnpool.cpp.o
 
 # target to build an object file
 mysql/sqlconnpool.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/mysql/sqlconnpool.cpp.o
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/mysql/sqlconnpool.cpp.o
 .PHONY : mysql/sqlconnpool.cpp.o
 
@@ -489,6 +495,7 @@ mysql/sqlconnpool.i: mysql/sqlconnpool.cpp.i
 
 # target to preprocess a source file
 mysql/sqlconnpool.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/mysql/sqlconnpool.cpp.i
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/mysql/sqlconnpool.cpp.i
 .PHONY : mysql/sqlconnpool.cpp.i
 
@@ -498,6 +505,7 @@ mysql/sqlconnpool.s: mysql/sqlconnpool.cpp.s
 
 # target to generate assembly for a file
 mysql/sqlconnpool.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/mysql/sqlconnpool.cpp.s
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/mysql/sqlconnpool.cpp.s
 .PHONY : mysql/sqlconnpool.cpp.s
 
@@ -825,6 +833,123 @@ reactor/tcpserver.cpp.s:
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/reactor/tcpserver.cpp.s
 .PHONY : reactor/tcpserver.cpp.s
 
+services/src/AuthService.o: services/src/AuthService.cpp.o
+
+.PHONY : services/src/AuthService.o
+
+# target to build an object file
+services/src/AuthService.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/AuthService.cpp.o
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/services/src/AuthService.cpp.o
+.PHONY : services/src/AuthService.cpp.o
+
+services/src/AuthService.i: services/src/AuthService.cpp.i
+
+.PHONY : services/src/AuthService.i
+
+# target to preprocess a source file
+services/src/AuthService.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/AuthService.cpp.i
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/services/src/AuthService.cpp.i
+.PHONY : services/src/AuthService.cpp.i
+
+services/src/AuthService.s: services/src/AuthService.cpp.s
+
+.PHONY : services/src/AuthService.s
+
+# target to generate assembly for a file
+services/src/AuthService.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/AuthService.cpp.s
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/services/src/AuthService.cpp.s
+.PHONY : services/src/AuthService.cpp.s
+
+services/src/AuthServiceTest.o: services/src/AuthServiceTest.cpp.o
+
+.PHONY : services/src/AuthServiceTest.o
+
+# target to build an object file
+services/src/AuthServiceTest.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/AuthServiceTest.cpp.o
+.PHONY : services/src/AuthServiceTest.cpp.o
+
+services/src/AuthServiceTest.i: services/src/AuthServiceTest.cpp.i
+
+.PHONY : services/src/AuthServiceTest.i
+
+# target to preprocess a source file
+services/src/AuthServiceTest.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/AuthServiceTest.cpp.i
+.PHONY : services/src/AuthServiceTest.cpp.i
+
+services/src/AuthServiceTest.s: services/src/AuthServiceTest.cpp.s
+
+.PHONY : services/src/AuthServiceTest.s
+
+# target to generate assembly for a file
+services/src/AuthServiceTest.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/AuthServiceTest.cpp.s
+.PHONY : services/src/AuthServiceTest.cpp.s
+
+services/src/DownloadService.o: services/src/DownloadService.cpp.o
+
+.PHONY : services/src/DownloadService.o
+
+# target to build an object file
+services/src/DownloadService.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/DownloadService.cpp.o
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.o
+.PHONY : services/src/DownloadService.cpp.o
+
+services/src/DownloadService.i: services/src/DownloadService.cpp.i
+
+.PHONY : services/src/DownloadService.i
+
+# target to preprocess a source file
+services/src/DownloadService.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/DownloadService.cpp.i
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.i
+.PHONY : services/src/DownloadService.cpp.i
+
+services/src/DownloadService.s: services/src/DownloadService.cpp.s
+
+.PHONY : services/src/DownloadService.s
+
+# target to generate assembly for a file
+services/src/DownloadService.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/DownloadService.cpp.s
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/services/src/DownloadService.cpp.s
+.PHONY : services/src/DownloadService.cpp.s
+
+services/src/StaticFileService.o: services/src/StaticFileService.cpp.o
+
+.PHONY : services/src/StaticFileService.o
+
+# target to build an object file
+services/src/StaticFileService.cpp.o:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/StaticFileService.cpp.o
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.o
+.PHONY : services/src/StaticFileService.cpp.o
+
+services/src/StaticFileService.i: services/src/StaticFileService.cpp.i
+
+.PHONY : services/src/StaticFileService.i
+
+# target to preprocess a source file
+services/src/StaticFileService.cpp.i:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/StaticFileService.cpp.i
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.i
+.PHONY : services/src/StaticFileService.cpp.i
+
+services/src/StaticFileService.s: services/src/StaticFileService.cpp.s
+
+.PHONY : services/src/StaticFileService.s
+
+# target to generate assembly for a file
+services/src/StaticFileService.cpp.s:
+	$(MAKE) -f CMakeFiles/AuthServiceTest.dir/build.make CMakeFiles/AuthServiceTest.dir/services/src/StaticFileService.cpp.s
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/services/src/StaticFileService.cpp.s
+.PHONY : services/src/StaticFileService.cpp.s
+
 timer/TimeWheel.o: timer/TimeWheel.cpp.o
 
 .PHONY : timer/TimeWheel.o
@@ -852,6 +977,303 @@ timer/TimeWheel.cpp.s:
 	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/timer/TimeWheel.cpp.s
 .PHONY : timer/TimeWheel.cpp.s
 
+views/src/BadRequestHandler.o: views/src/BadRequestHandler.cpp.o
+
+.PHONY : views/src/BadRequestHandler.o
+
+# target to build an object file
+views/src/BadRequestHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.o
+.PHONY : views/src/BadRequestHandler.cpp.o
+
+views/src/BadRequestHandler.i: views/src/BadRequestHandler.cpp.i
+
+.PHONY : views/src/BadRequestHandler.i
+
+# target to preprocess a source file
+views/src/BadRequestHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.i
+.PHONY : views/src/BadRequestHandler.cpp.i
+
+views/src/BadRequestHandler.s: views/src/BadRequestHandler.cpp.s
+
+.PHONY : views/src/BadRequestHandler.s
+
+# target to generate assembly for a file
+views/src/BadRequestHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/BadRequestHandler.cpp.s
+.PHONY : views/src/BadRequestHandler.cpp.s
+
+views/src/ErrorHandler.o: views/src/ErrorHandler.cpp.o
+
+.PHONY : views/src/ErrorHandler.o
+
+# target to build an object file
+views/src/ErrorHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.o
+.PHONY : views/src/ErrorHandler.cpp.o
+
+views/src/ErrorHandler.i: views/src/ErrorHandler.cpp.i
+
+.PHONY : views/src/ErrorHandler.i
+
+# target to preprocess a source file
+views/src/ErrorHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.i
+.PHONY : views/src/ErrorHandler.cpp.i
+
+views/src/ErrorHandler.s: views/src/ErrorHandler.cpp.s
+
+.PHONY : views/src/ErrorHandler.s
+
+# target to generate assembly for a file
+views/src/ErrorHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/ErrorHandler.cpp.s
+.PHONY : views/src/ErrorHandler.cpp.s
+
+views/src/ForbiddenHandler.o: views/src/ForbiddenHandler.cpp.o
+
+.PHONY : views/src/ForbiddenHandler.o
+
+# target to build an object file
+views/src/ForbiddenHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.o
+.PHONY : views/src/ForbiddenHandler.cpp.o
+
+views/src/ForbiddenHandler.i: views/src/ForbiddenHandler.cpp.i
+
+.PHONY : views/src/ForbiddenHandler.i
+
+# target to preprocess a source file
+views/src/ForbiddenHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.i
+.PHONY : views/src/ForbiddenHandler.cpp.i
+
+views/src/ForbiddenHandler.s: views/src/ForbiddenHandler.cpp.s
+
+.PHONY : views/src/ForbiddenHandler.s
+
+# target to generate assembly for a file
+views/src/ForbiddenHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/ForbiddenHandler.cpp.s
+.PHONY : views/src/ForbiddenHandler.cpp.s
+
+views/src/IndexPageHandler.o: views/src/IndexPageHandler.cpp.o
+
+.PHONY : views/src/IndexPageHandler.o
+
+# target to build an object file
+views/src/IndexPageHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.o
+.PHONY : views/src/IndexPageHandler.cpp.o
+
+views/src/IndexPageHandler.i: views/src/IndexPageHandler.cpp.i
+
+.PHONY : views/src/IndexPageHandler.i
+
+# target to preprocess a source file
+views/src/IndexPageHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.i
+.PHONY : views/src/IndexPageHandler.cpp.i
+
+views/src/IndexPageHandler.s: views/src/IndexPageHandler.cpp.s
+
+.PHONY : views/src/IndexPageHandler.s
+
+# target to generate assembly for a file
+views/src/IndexPageHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/IndexPageHandler.cpp.s
+.PHONY : views/src/IndexPageHandler.cpp.s
+
+views/src/LoginPageHandler.o: views/src/LoginPageHandler.cpp.o
+
+.PHONY : views/src/LoginPageHandler.o
+
+# target to build an object file
+views/src/LoginPageHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.o
+.PHONY : views/src/LoginPageHandler.cpp.o
+
+views/src/LoginPageHandler.i: views/src/LoginPageHandler.cpp.i
+
+.PHONY : views/src/LoginPageHandler.i
+
+# target to preprocess a source file
+views/src/LoginPageHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.i
+.PHONY : views/src/LoginPageHandler.cpp.i
+
+views/src/LoginPageHandler.s: views/src/LoginPageHandler.cpp.s
+
+.PHONY : views/src/LoginPageHandler.s
+
+# target to generate assembly for a file
+views/src/LoginPageHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/LoginPageHandler.cpp.s
+.PHONY : views/src/LoginPageHandler.cpp.s
+
+views/src/MethodNotAllowedHandler.o: views/src/MethodNotAllowedHandler.cpp.o
+
+.PHONY : views/src/MethodNotAllowedHandler.o
+
+# target to build an object file
+views/src/MethodNotAllowedHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.o
+.PHONY : views/src/MethodNotAllowedHandler.cpp.o
+
+views/src/MethodNotAllowedHandler.i: views/src/MethodNotAllowedHandler.cpp.i
+
+.PHONY : views/src/MethodNotAllowedHandler.i
+
+# target to preprocess a source file
+views/src/MethodNotAllowedHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.i
+.PHONY : views/src/MethodNotAllowedHandler.cpp.i
+
+views/src/MethodNotAllowedHandler.s: views/src/MethodNotAllowedHandler.cpp.s
+
+.PHONY : views/src/MethodNotAllowedHandler.s
+
+# target to generate assembly for a file
+views/src/MethodNotAllowedHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/MethodNotAllowedHandler.cpp.s
+.PHONY : views/src/MethodNotAllowedHandler.cpp.s
+
+views/src/NotFoundHandler.o: views/src/NotFoundHandler.cpp.o
+
+.PHONY : views/src/NotFoundHandler.o
+
+# target to build an object file
+views/src/NotFoundHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.o
+.PHONY : views/src/NotFoundHandler.cpp.o
+
+views/src/NotFoundHandler.i: views/src/NotFoundHandler.cpp.i
+
+.PHONY : views/src/NotFoundHandler.i
+
+# target to preprocess a source file
+views/src/NotFoundHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.i
+.PHONY : views/src/NotFoundHandler.cpp.i
+
+views/src/NotFoundHandler.s: views/src/NotFoundHandler.cpp.s
+
+.PHONY : views/src/NotFoundHandler.s
+
+# target to generate assembly for a file
+views/src/NotFoundHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/NotFoundHandler.cpp.s
+.PHONY : views/src/NotFoundHandler.cpp.s
+
+views/src/PicturePageHandler.o: views/src/PicturePageHandler.cpp.o
+
+.PHONY : views/src/PicturePageHandler.o
+
+# target to build an object file
+views/src/PicturePageHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.o
+.PHONY : views/src/PicturePageHandler.cpp.o
+
+views/src/PicturePageHandler.i: views/src/PicturePageHandler.cpp.i
+
+.PHONY : views/src/PicturePageHandler.i
+
+# target to preprocess a source file
+views/src/PicturePageHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.i
+.PHONY : views/src/PicturePageHandler.cpp.i
+
+views/src/PicturePageHandler.s: views/src/PicturePageHandler.cpp.s
+
+.PHONY : views/src/PicturePageHandler.s
+
+# target to generate assembly for a file
+views/src/PicturePageHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/PicturePageHandler.cpp.s
+.PHONY : views/src/PicturePageHandler.cpp.s
+
+views/src/RegisterPageHandler.o: views/src/RegisterPageHandler.cpp.o
+
+.PHONY : views/src/RegisterPageHandler.o
+
+# target to build an object file
+views/src/RegisterPageHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.o
+.PHONY : views/src/RegisterPageHandler.cpp.o
+
+views/src/RegisterPageHandler.i: views/src/RegisterPageHandler.cpp.i
+
+.PHONY : views/src/RegisterPageHandler.i
+
+# target to preprocess a source file
+views/src/RegisterPageHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.i
+.PHONY : views/src/RegisterPageHandler.cpp.i
+
+views/src/RegisterPageHandler.s: views/src/RegisterPageHandler.cpp.s
+
+.PHONY : views/src/RegisterPageHandler.s
+
+# target to generate assembly for a file
+views/src/RegisterPageHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/RegisterPageHandler.cpp.s
+.PHONY : views/src/RegisterPageHandler.cpp.s
+
+views/src/VideoPageHandler.o: views/src/VideoPageHandler.cpp.o
+
+.PHONY : views/src/VideoPageHandler.o
+
+# target to build an object file
+views/src/VideoPageHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.o
+.PHONY : views/src/VideoPageHandler.cpp.o
+
+views/src/VideoPageHandler.i: views/src/VideoPageHandler.cpp.i
+
+.PHONY : views/src/VideoPageHandler.i
+
+# target to preprocess a source file
+views/src/VideoPageHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.i
+.PHONY : views/src/VideoPageHandler.cpp.i
+
+views/src/VideoPageHandler.s: views/src/VideoPageHandler.cpp.s
+
+.PHONY : views/src/VideoPageHandler.s
+
+# target to generate assembly for a file
+views/src/VideoPageHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/VideoPageHandler.cpp.s
+.PHONY : views/src/VideoPageHandler.cpp.s
+
+views/src/WelcomePageHandler.o: views/src/WelcomePageHandler.cpp.o
+
+.PHONY : views/src/WelcomePageHandler.o
+
+# target to build an object file
+views/src/WelcomePageHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.o
+.PHONY : views/src/WelcomePageHandler.cpp.o
+
+views/src/WelcomePageHandler.i: views/src/WelcomePageHandler.cpp.i
+
+.PHONY : views/src/WelcomePageHandler.i
+
+# target to preprocess a source file
+views/src/WelcomePageHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.i
+.PHONY : views/src/WelcomePageHandler.cpp.i
+
+views/src/WelcomePageHandler.s: views/src/WelcomePageHandler.cpp.s
+
+.PHONY : views/src/WelcomePageHandler.s
+
+# target to generate assembly for a file
+views/src/WelcomePageHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/httpserver.dir/build.make CMakeFiles/httpserver.dir/views/src/WelcomePageHandler.cpp.s
+.PHONY : views/src/WelcomePageHandler.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -860,13 +1282,9 @@ help:
 	@echo "... depend"
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
+	@echo "... AuthServiceTest"
 	@echo "... httpserver"
-	@echo "... http/httprequest.o"
-	@echo "... http/httprequest.i"
-	@echo "... http/httprequest.s"
-	@echo "... http/httpresponse.o"
-	@echo "... http/httpresponse.i"
-	@echo "... http/httpresponse.s"
+	@echo "... http"
 	@echo "... logger/log_console_output.o"
 	@echo "... logger/log_console_output.i"
 	@echo "... logger/log_console_output.s"
@@ -939,9 +1357,54 @@ help:
 	@echo "... reactor/tcpserver.o"
 	@echo "... reactor/tcpserver.i"
 	@echo "... reactor/tcpserver.s"
+	@echo "... services/src/AuthService.o"
+	@echo "... services/src/AuthService.i"
+	@echo "... services/src/AuthService.s"
+	@echo "... services/src/AuthServiceTest.o"
+	@echo "... services/src/AuthServiceTest.i"
+	@echo "... services/src/AuthServiceTest.s"
+	@echo "... services/src/DownloadService.o"
+	@echo "... services/src/DownloadService.i"
+	@echo "... services/src/DownloadService.s"
+	@echo "... services/src/StaticFileService.o"
+	@echo "... services/src/StaticFileService.i"
+	@echo "... services/src/StaticFileService.s"
 	@echo "... timer/TimeWheel.o"
 	@echo "... timer/TimeWheel.i"
 	@echo "... timer/TimeWheel.s"
+	@echo "... views/src/BadRequestHandler.o"
+	@echo "... views/src/BadRequestHandler.i"
+	@echo "... views/src/BadRequestHandler.s"
+	@echo "... views/src/ErrorHandler.o"
+	@echo "... views/src/ErrorHandler.i"
+	@echo "... views/src/ErrorHandler.s"
+	@echo "... views/src/ForbiddenHandler.o"
+	@echo "... views/src/ForbiddenHandler.i"
+	@echo "... views/src/ForbiddenHandler.s"
+	@echo "... views/src/IndexPageHandler.o"
+	@echo "... views/src/IndexPageHandler.i"
+	@echo "... views/src/IndexPageHandler.s"
+	@echo "... views/src/LoginPageHandler.o"
+	@echo "... views/src/LoginPageHandler.i"
+	@echo "... views/src/LoginPageHandler.s"
+	@echo "... views/src/MethodNotAllowedHandler.o"
+	@echo "... views/src/MethodNotAllowedHandler.i"
+	@echo "... views/src/MethodNotAllowedHandler.s"
+	@echo "... views/src/NotFoundHandler.o"
+	@echo "... views/src/NotFoundHandler.i"
+	@echo "... views/src/NotFoundHandler.s"
+	@echo "... views/src/PicturePageHandler.o"
+	@echo "... views/src/PicturePageHandler.i"
+	@echo "... views/src/PicturePageHandler.s"
+	@echo "... views/src/RegisterPageHandler.o"
+	@echo "... views/src/RegisterPageHandler.i"
+	@echo "... views/src/RegisterPageHandler.s"
+	@echo "... views/src/VideoPageHandler.o"
+	@echo "... views/src/VideoPageHandler.i"
+	@echo "... views/src/VideoPageHandler.s"
+	@echo "... views/src/WelcomePageHandler.o"
+	@echo "... views/src/WelcomePageHandler.i"
+	@echo "... views/src/WelcomePageHandler.s"
 .PHONY : help
 
 

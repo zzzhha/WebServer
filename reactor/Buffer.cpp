@@ -15,6 +15,33 @@ BufferBlock::~BufferBlock()=default;
 void BufferBlock::append(std::string&str){
   append(str.data(),str.size());
 }
+
+BufferBlock::BufferBlock(BufferBlock&& rhs)noexcept
+:total_size_(rhs.total_size_),read_pos_(rhs.read_pos_),write_pos_(rhs.write_pos_),check_pos_(rhs.check_pos_),
+blocks_(std::move(rhs.blocks_)){
+  rhs.total_size_ = 0;
+  rhs.read_pos_ = 0;
+  rhs.write_pos_ = 0;
+  rhs.check_pos_ = 0;
+}
+
+BufferBlock& BufferBlock::operator=(BufferBlock&&rhs)noexcept {
+  if(&rhs!=this){
+    blocks_.clear();
+
+    total_size_=rhs.total_size_;
+    read_pos_=rhs.read_pos_;
+    write_pos_=rhs.write_pos_;
+    check_pos_=rhs.check_pos_;
+    blocks_= std::move(rhs.blocks_);
+
+    rhs.total_size_ = 0;
+    rhs.read_pos_ = 0;
+    rhs.write_pos_ = 0;
+    rhs.check_pos_ = 0;
+  }
+  return *this;
+}
 //将数据追加到buf_中
 void BufferBlock::append(const char* data,size_t size){
   if(size==0) return;
@@ -63,30 +90,6 @@ void BufferBlock::clear(){
   blocks_.emplace_back(INITIAL_BLOCK_SIZE);
   total_size_ = read_pos_ = write_pos_ =check_pos_= 0;
 }                                
-
-//从block中拆分出一个报文，保存在ss,如果没有报文，则返回false
-/*
-bool BufferBlock::pickmessage(std::string &ss){
-  if(readableBytes()==0) return false;
-
-  if(sep_ ==1){
-    if(readableBytes()<4) return false;
-    uint32_t msg_len = 0;
-    peekFromBlock(reinterpret_cast<char*>(&msg_len),4);
-
-    if(readableBytes() < msg_len + 4) return false;
-    //删除头部的4个字节
-    consumeBytes(4);
-    //为ss设置合适的大小
-    if(ss.size()<msg_len){
-      ss.resize(msg_len);
-    }
-    readBytes(&ss[0],msg_len);
-  }else if(sep_==2){
-
-  }
-  return true;
-}  */
 
 const char *BufferBlock::peek()const{
   return (char*)blocks_[0].data + read_pos_;
@@ -218,7 +221,7 @@ size_t BufferBlock::getIOVecs(struct iovec* iovs, size_t max_count, size_t start
   return count;
 }
 
-std::string BufferBlock::bufferToString() const{
+std::string BufferBlock::bufferToString() {
   std::string str;
   str.resize(readableBytes());
   peekFromBlock(const_cast<char*>(str.data()),readableBytes());

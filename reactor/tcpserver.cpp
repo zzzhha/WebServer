@@ -91,7 +91,7 @@ void TcpServer::errorconnection(spConnection conn){
 
 }
 
-void TcpServer::message(spConnection conn/*暂且先注释了等后面需要用到工作线程在开出来,std::string&buf*/)
+void TcpServer::message(spConnection conn/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock*/)
 {
   if(onmessagecb_)onmessagecb_(conn/*暂且先注释了等后面需要用到工作线程在开出来,buf*/);
 }
@@ -114,7 +114,7 @@ void TcpServer::setcloseconnection(std::function<void(spConnection)>fn){
 void TcpServer::seterrorconnection(std::function<void(spConnection)>fn){
   errorconnectioncb_=fn;
 }        
-void TcpServer::setonmessage(std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,std::string&*/)>fn){
+void TcpServer::setonmessage(std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock&*/)>fn){
   onmessagecb_=fn;
 }      
 void TcpServer::setsendcomplete(std::function<void(spConnection)>fn){
