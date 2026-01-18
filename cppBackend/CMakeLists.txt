@@ -52,7 +52,7 @@ include_directories(
     .
     http
     logger
-    memory_pool
+    MemoryPool
     mysql
     reactor
     timer
@@ -103,14 +103,14 @@ set(LOGGER_SOURCES
     #memory_pool1/ThreadCache.h
 #)
 set(MEMORY_POOL_SOURCES
-    memory_pool2/centralCache.cpp
-    memory_pool2/centralCache.h
-    memory_pool2/common.h
-    memory_pool2/MemoryPool.h
-    memory_pool2/pageCache.cpp
-    memory_pool2/pageCache.h
-    memory_pool2/threadcache.cpp
-    memory_pool2/threadcache.h
+    MemoryPool/centralCache.cpp
+    MemoryPool/centralCache.h
+    MemoryPool/common.h
+    MemoryPool/MemoryPool.h
+    MemoryPool/pageCache.cpp
+    MemoryPool/pageCache.h
+    MemoryPool/threadcache.cpp
+    MemoryPool/threadcache.h
 )
 # MySQL模块源文件
 set(MYSQL_SOURCES
@@ -188,6 +188,9 @@ add_executable(${PROJECT_NAME}
     ${SERVICES_SOURCES}
     ${VIEWS_SOURCES}
 )
+
+# 确保前端资源在后端构建之前复制
+add_dependencies(${PROJECT_NAME} copy_frontend)
 
 # 链接库
 target_link_libraries(${PROJECT_NAME}

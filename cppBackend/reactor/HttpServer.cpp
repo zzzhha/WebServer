@@ -3,6 +3,7 @@
 #include"../http/include/handler/AppHandlers.h"
 #include"../services/include/AuthService.h"
 #include"../services/include/DownloadService.h"
+#include"../services/include/StaticFileService.h"
 #include<algorithm>
 #include<sstream>
 
@@ -275,18 +276,31 @@ void HttpServer::SetupRoutes() {
   auto pageRouteHandler = CreatePageRouteHandler(pageHandlers_);
   
   // 注册业务API路由
-  router_->Post("/register", RegisterRouteHandler);
-  router_->Post("/login", LoginRouteHandler);
-  router_->Get("/download/*", DownloadRouteHandler);
-  
-  // 注册页面路由（使用lambda表达式）
-  router_->Get("/", pageRouteHandler);
-  router_->Get("/index.html", pageRouteHandler);
-  router_->Get("/welcome.html", pageRouteHandler);
-  router_->Get("/login.html", pageRouteHandler);
-  router_->Get("/register.html", pageRouteHandler);
-  router_->Get("/picture.html", pageRouteHandler);
-  router_->Get("/video.html", pageRouteHandler);
+        router_->Post("/register", RegisterRouteHandler);
+        router_->Post("/login", LoginRouteHandler);
+        router_->Get("/download/*", DownloadRouteHandler);
+        
+        // 注册静态文件路由
+        router_->Get("/images/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+            auto* request = dynamic_cast<HttpRequest*>(&message);
+            if (!request) return false;
+            return StaticFileService::HandleStaticFile(request, response, static_path_);
+        });
+        
+        router_->Get("/video/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+            auto* request = dynamic_cast<HttpRequest*>(&message);
+            if (!request) return false;
+            return StaticFileService::HandleStaticFile(request, response, static_path_);
+        });
+        
+        // 注册页面路由（使用lambda表达式）
+        router_->Get("/", pageRouteHandler);
+        router_->Get("/index.html", pageRouteHandler);
+        router_->Get("/welcome.html", pageRouteHandler);
+        router_->Get("/login.html", pageRouteHandler);
+        router_->Get("/register.html", pageRouteHandler);
+        router_->Get("/picture.html", pageRouteHandler);
+        router_->Get("/video.html", pageRouteHandler);
 }
 
 // 处理HTTP请求的辅助函数

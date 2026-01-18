@@ -9,12 +9,12 @@ target_include_directories(tcpepoll
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
     PUBLIC 
     ${CMAKE_SOURCE_DIR}/logger
-    ${CMAKE_SOURCE_DIR}/memory_pool
+    ${CMAKE_SOURCE_DIR}/MemoryPool
 )
 target_link_libraries(tcpepoll 
     PUBLIC 
     logger
-    memory_pool
+    MemoryPool
     Threads::Threads
 )
 
