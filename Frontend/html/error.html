@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>错误页面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+
+        body {
+            background-color: #fdf5e6; /* 米黄色背景，与整体风格一致 */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* 右上角导航区域 */
+        .top-nav {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 20px; /* 链接之间的间距 */
+        }
+
+        .top-nav a {
+            color: #333;
+            text-decoration: none;
+            transition: color 0.3s ease; /*  hover 过渡效果 */
+            font-size: 1rem;
+        }
+
+        .top-nav a:hover {
+            color: #d2b48c; /* 与按钮 hover 颜色统一，增强一致性 */
+        }
+
+        /* 中心错误提示 */
+        .error-message {
+            font-size: 2rem;
+            color: #e74c3c; /* 错误提示用红色系，醒目且柔和 */
+            text-align: center;
+            margin-top: 50px; /* 避免与顶部导航重叠 */
+        }
+    </style>
+</head>
+<body>
+    <!-- 右上角导航链接（对应各页面） -->
+    <div class="top-nav">
+        <a href="welcome.html">欢迎页</a>
+        <a href="index.html">主页</a>
+        <a href="login.html">登录</a>
+        <a href="register.html">注册</a>
+    </div>
+
+    <!-- 中心错误提示文字 -->
+    <div class="error-message">错误!!!</div>
+</body>
+</html>

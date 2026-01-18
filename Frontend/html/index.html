@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主页 - 我的小窝</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+
+        body {
+            background-color: #fdf5e6; /* 米黄色背景，保持风格一致 */
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* 顶部导航栏 */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            margin-bottom: 50px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            color: #333;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .auth-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .auth-btn {
+            padding: 8px 16px;
+            background-color: #d2b48c;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .auth-btn:hover {
+            background-color: #c09871;
+            transform: scale(1.05);
+        }
+
+        .user-greeting {
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .divider {
+            color: #999;
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+        }
+
+        .section-title {
+            font-size: 2.2rem;
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            width: 100%;
+        }
+
+        .content-card {
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .content-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 200px;
+            background-color: #eee;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3rem;
+            color: #999;
+        }
+
+        .card-content {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .card-desc {
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        .card-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #d2b48c;
+            color: #333;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .card-btn:hover {
+            background-color: #c09871;
+            transform: scale(1.05);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .section-title {
+                font-size: 1.8rem;
+            }
+            
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .logo {
+                font-size: 1.5rem;
+            }
+            
+            .auth-controls {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .card-image {
+                height: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <header>
+        <a href="index.html" class="logo">我的小窝</a>
+        
+        <div class="auth-controls" id="authControls">
+            <!-- 登录状态将通过JavaScript动态切换 -->
+            <a href="login.html" class="auth-btn" id="loginBtn">登录</a>
+            <span class="divider" id="divider">|</span>
+            <a href="register.html" class="auth-btn" id="registerBtn">注册</a>
+            <span class="user-greeting" id="userGreeting" style="display: none;"></span>
+        </div>
+    </header>
+
+    <!-- 主内容区域 -->
+    <div class="main-content">
+        <h1 class="section-title">内容导航</h1>
+        
+        <div class="content-grid">
+            <!-- 图片页面跳转卡片 -->
+            <div class="content-card">
+                <div class="card-image">
+                    🖼️
+                </div>
+                <div class="card-content">
+                    <h2 class="card-title">图片浏览</h2>
+                    <p class="card-desc">查看和下载各种精美图片，支持图片放大查看功能</p>
+                    <a href="picture.html" class="card-btn">进入图片页面</a>
+                </div>
+            </div>
+            
+            <!-- 视频页面跳转卡片 -->
+            <div class="content-card">
+                <div class="card-image">
+                    🎥
+                </div>
+                <div class="card-content">
+                    <h2 class="card-title">视频欣赏</h2>
+                    <p class="card-desc">浏览和观看精彩视频内容，支持视频下载</p>
+                    <a href="video.html" class="card-btn">进入视频页面</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 检查用户登录状态（实际项目中可能从后端获取或从cookie/localStorage读取）
+        // 这里使用localStorage模拟登录状态存储
+        function checkLoginStatus() {
+            const loginBtn = document.getElementById('loginBtn');
+            const registerBtn = document.getElementById('registerBtn');
+            const divider = document.getElementById('divider');
+            const userGreeting = document.getElementById('userGreeting');
+            
+            // 从localStorage获取用户信息
+            const user = localStorage.getItem('currentUser');
+            
+            if (user) {
+                // 用户已登录，显示欢迎信息，隐藏登录注册按钮
+                loginBtn.style.display = 'none';
+                registerBtn.style.display = 'none';
+                divider.style.display = 'none';
+                userGreeting.style.display = 'block';
+                userGreeting.textContent = `欢迎您，${user}`;
+            } else {
+                // 用户未登录，显示登录注册按钮
+                loginBtn.style.display = 'block';
+                registerBtn.style.display = 'block';
+                divider.style.display = 'inline-block';
+                userGreeting.style.display = 'none';
+            }
+        }
+        
+        // 页面加载时检查登录状态
+        window.onload = checkLoginStatus;
+    </script>
+</body>
+</html>
+    

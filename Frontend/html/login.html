@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 我的小窝</title>
+    <style>
+        /* 全局样式重置与基础设置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+
+        body {
+            background-color: #fdf5e6; /* 米黄色背景 */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* 头部导航 */
+        header {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+        }
+
+        .home-link {
+            color: #333;
+            text-decoration: none;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+        .home-link:hover {
+            color: #c09871;
+        }
+
+        /* 表单容器 */
+        .form-container {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 40px 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .form-title {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+            font-size: 2rem;
+        }
+
+        /* 表单样式 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #d2b48c;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #d2b48c;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #c09871;
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* 注册链接 */
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #555;
+        }
+
+        .register-link a {
+            color: #d2b48c;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .register-link a:hover {
+            color: #c09871;
+        }
+
+        /* 消息提示 */
+        .message {
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            background-color: rgba(231, 76, 60, 0.1);
+        }
+        .success-message {
+            color: #e74c3c; 
+            background-color: rgba(231, 76, 60, 0.1); /* 淡绿色背景 */
+        }
+
+        /* 响应式布局 */
+        @media (max-width: 480px) {
+            .form-container {
+                padding: 30px 20px;
+            }
+            
+            .form-title {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部：返回主页链接 -->
+    <header>
+        <a href="welcome.html" class="home-link">← 返回欢迎页</a>
+    </header>
+
+    <!-- 登录表单容器 -->
+    <div class="form-container">
+        <h2 class="form-title">登录</h2>
+        
+        <!-- 消息提示区域 -->
+        <div class="message error-message" id="errorMessage"></div>
+        <!-- 新增成功消息元素 -->
+        <div class="message success-message" id="successMessage"></div>
+        
+        <!-- 登录表单 -->
+        <form id="loginForm" method="post" enctype="application/x-www-form-urlencoded">
+            <div class="form-group">
+                <label for="username" class="form-label">用户名</label>
+                <input type="text" id="username" name="username" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password" class="form-label">密码</label>
+                <input type="password" id="password" name="password" class="form-input" required>
+            </div>
+            
+            <button type="submit" class="btn">登录</button>
+            
+            <div class="register-link">
+                还没有账号？<a href="register.html">立即注册</a>
+            </div>
+        </form>
+        
+    </div>
+
+    <script>
+        // 获取表单和消息提示元素
+        const loginForm = document.getElementById('loginForm');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const passwordInput = document.getElementById('password');
+        const usernameInput = document.getElementById('username');
+    
+        // 隐藏所有消息
+        const hideAllMessages = () => {
+            successMessage.style.display = 'none';
+            errorMessage.style.display = 'none';
+        };
+    
+        // 显示消息
+        const showMessage = (element, text) => {
+            element.textContent = text;
+            element.style.display = 'block';
+        };
+    
+        // 表单提交事件处理
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault(); // 阻止表单默认提交行为
+            hideAllMessages();
+            
+            // 客户端表单验证
+            if (usernameInput.value.trim() === '') {
+                showMessage(errorMessage, '用户名不能为空');
+                return;
+            }
+            
+            if (passwordInput.value.length < 6) {
+                showMessage(errorMessage, '密码长度至少6位');
+                return;
+            }
+            
+            // 准备表单数据（使用URLSearchParams生成x-www-form-urlencoded格式）
+            const formData = new URLSearchParams();
+            formData.append('username', usernameInput.value.trim());
+            formData.append('password', passwordInput.value);
+            
+            try {
+                // 发送POST请求到后端注册接口
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    body: formData, // 自动使用application/x-www-form-urlencoded格式
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    // 登录成功处理
+                    showMessage(successMessage, '登录成功！即将跳转到登录页...');
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 2000);
+                } else {
+                    // 显示后端返回的错误信息
+                    showMessage(errorMessage, result.message || '登录失败，请稍后重试');
+                }
+            } catch (error) {
+                console.error('登录请求失败:', error);
+                showMessage(errorMessage, '服务器连接失败，请检查网络');
+            }
+        });
+    
+        // 输入时清除对应错误消息
+        [usernameInput, passwordInput].forEach(input => {
+            input.addEventListener('input', hideAllMessages);
+        });
+    </script>
+</body>
+</html>
+

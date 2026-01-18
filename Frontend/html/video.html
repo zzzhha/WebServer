@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频下载 - 我的小窝</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+
+        body {
+            background-color: #fdf5e6; /* 米黄色背景，延续整体风格 */
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* 顶部导航栏 */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .back-btn {
+            padding: 6px 12px;
+            background-color: #d2b48c;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .back-btn:hover {
+            background-color: #c09871;
+            transform: scale(1.05);
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .nav-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .nav-btn {
+            padding: 8px 16px;
+            background-color: #d2b48c;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .nav-btn:hover {
+            background-color: #c09871;
+            transform: scale(1.05);
+        }
+
+        .auth-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .auth-btn {
+            padding: 8px 16px;
+            background-color: #d2b48c;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .auth-btn:hover {
+            background-color: #c09871;
+            transform: scale(1.05);
+        }
+
+        .user-greeting {
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .divider {
+            color: #999;
+        }
+
+        /* 视频列表区域 */
+        .video-list {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .video-item {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .video-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .video-name {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 10px;
+            cursor: pointer;
+            display: inline-block;
+            transition: color 0.3s ease;
+        }
+
+        .video-name:hover {
+            color: #d2b48c;
+        }
+
+        .video-desc {
+            color: #555;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        .download-btn {
+            padding: 6px 12px;
+            background-color: #d2b48c;
+            color: #333;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .download-btn:hover {
+            background-color: #c09871;
+            transform: scale(1.05);
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .nav-controls {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            header {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .page-title {
+                font-size: 1.3rem;
+            }
+            .video-item {
+                padding: 15px;
+            }
+            .header-left {
+                flex-direction: column;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航：左上角返回主页 + 右上角图片页面跳转和登录/注册 -->
+    <header>
+        <div class="header-left">
+            <a href="index.html" class="back-btn">← 返回主页</a>
+            <div class="page-title">视频</div>
+        </div>
+        <div class="nav-controls">
+            <a href="picture.html" class="nav-btn">图片页面</a>
+            <div class="auth-controls" id="authControls">
+                <a href="login.html" class="auth-btn" id="loginBtn">登录</a>
+                <span class="divider" id="divider">|</span>
+                <a href="register.html" class="auth-btn" id="registerBtn">注册</a>
+                <span class="user-greeting" id="userGreeting" style="display: none;"></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 视频列表：仅提供下载，不支持播放 -->
+    <div class="video-list">
+        <div class="video-item">
+            <div class="video-name" data-video="diangunfukua.mp4">1. 电棍浮夸倒放</div>
+            <p class="video-desc">点击名称或下载按钮，可下载该视频（不提供播放功能）</p>
+            <button class="download-btn" data-video="diangunfukua.mp4">下载视频</button>
+        </div>
+        <div class="video-item">
+            <div class="video-name" data-video="mingweihouguoyu.mp4">2. 名为侯国玉</div>
+            <p class="video-desc">点击名称或下载按钮，可下载该视频（不提供播放功能）</p>
+            <button class="download-btn" data-video="mingweihouguoyu.mp4">下载视频</button>
+        </div>
+    </div>
+
+    <script>
+        // 登录状态判断（与主页逻辑一致）
+        function checkLoginStatus() {
+            const loginBtn = document.getElementById('loginBtn');
+            const registerBtn = document.getElementById('registerBtn');
+            const divider = document.getElementById('divider');
+            const userGreeting = document.getElementById('userGreeting');
+            
+            const user = localStorage.getItem('currentUser');
+            
+            if (user) {
+                loginBtn.style.display = 'none';
+                registerBtn.style.display = 'none';
+                divider.style.display = 'none';
+                userGreeting.style.display = 'block';
+                userGreeting.textContent = `欢迎您，${user}`;
+            } else {
+                loginBtn.style.display = 'block';
+                registerBtn.style.display = 'block';
+                divider.style.display = 'inline-block';
+                userGreeting.style.display = 'none';
+            }
+        }
+        
+        window.onload = checkLoginStatus;
+
+        // 视频下载功能：点击“视频名称”或“下载按钮”均触发下载
+        const downloadBtns = document.querySelectorAll('.download-btn');
+        const videoNames = document.querySelectorAll('.video-name');
+
+        downloadBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const videoName = this.getAttribute('data-video');
+                downloadVideo(videoName);
+            });
+        });
+
+        videoNames.forEach(name => {
+            name.addEventListener('click', function() {
+                const videoName = this.getAttribute('data-video');
+                downloadVideo(videoName);
+            });
+        });
+
+        function downloadVideo(videoName) {
+            // 向后端发送GET请求，下载video文件夹内的视频
+            // 使用路径格式：/download/video/filename
+            const downloadUrl = `/download/video/${videoName}`;
+            fetch(downloadUrl, {
+                method: 'GET'
+            })
+            .then(response => {
+                if (response.ok) return response.blob();
+                throw new Error('下载失败');
+            })
+            .then(blob => {
+                // 前端创建临时链接实现下载
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = videoName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            })
+            .catch(err => {
+                console.error(err);
+                console.log('下载失败，请重试');
+            });
+        }
+    </script>
+</body>
+</html>
+    

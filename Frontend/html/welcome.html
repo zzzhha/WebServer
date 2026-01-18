@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的小窝</title>
+    <style>
+        /* 全局样式重置与基础设置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+
+        body {
+            background-color: #fdf5e6; /* 米黄色背景 */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* 头部认证按钮区域 */
+        header {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+        }
+
+        .auth-buttons {
+            display: flex;
+            align-items: center; /* 使竖杠与按钮垂直居中 */
+            gap: 15px;
+        }
+
+        /* 通用按钮样式 */
+        .btn {
+            padding: 8px 16px;
+            background-color: #d2b48c; /* 柔和棕色调按钮 */
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease; /* 过渡效果，让悬停/点击更丝滑 */
+            font-size: 1rem; /* 按钮基准字体大小，用于匹配竖杠 */
+        }
+
+        .btn:hover {
+            background-color: #c09871; /* 悬停时加深背景色 */
+            transform: scale(1.05); /* 悬停时轻微放大 */
+        }
+
+        .btn:active {
+            transform: scale(0.95); /* 点击时轻微缩小 */
+        }
+
+        /* 注册/登录之间的竖杠样式 */
+        .divider {
+            font-weight: bold;   /* 竖杠加粗 */
+            font-size: 1.2rem;  /* 调整尺寸，与按钮垂直尺寸匹配 */
+        }
+
+        /* 主体内容区域 */
+        main {
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .welcome-title {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        /* WELCOME 样式：加粗且尺寸小于主标题 */
+        .welcome-english {
+            font-size: 2.5rem;   /* 小于主标题的 3.5rem */
+            margin-bottom: 40px;
+            color: #555;
+            font-weight: bold;   /* 字体加粗 */
+        }
+
+        /* 跳转主页按钮 */
+        .jump-btn {
+            padding: 12px 24px;
+            font-size: 1.2rem;
+            background-color: #d2b48c;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .jump-btn:hover {
+            background-color: #c09871;
+            transform: scale(1.05);
+        }
+
+        .jump-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* 响应式布局：小屏幕适配 */
+        @media (max-width: 768px) {
+            .welcome-title {
+                font-size: 2.5rem;
+            }
+            .welcome-english {
+                font-size: 1.8rem;
+            }
+            .jump-btn {
+                font-size: 1rem;
+                padding: 10px 20px;
+            }
+            header {
+                top: 10px;
+                right: 10px;
+            }
+            .btn {
+                padding: 6px 12px;
+                font-size: 0.9rem;
+            }
+            .divider {
+                font-size: 1rem; /* 小屏幕下竖杠尺寸同步缩小 */
+            }
+        }
+
+        @media (max-width: 480px) {
+            .welcome-title {
+                font-size: 2rem;
+            }
+            .welcome-english {
+                font-size: 1.5rem;
+            }
+            .auth-buttons {
+                flex-direction: column; /* 超小屏幕下，注册/登录按钮垂直排列 */
+                gap: 10px;
+            }
+            .divider {
+                display: none; /* 超小屏幕下隐藏竖杠（或按需调整） */
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部：注册、登录按钮 -->
+    <header>
+        <div class="auth-buttons">
+            <button class="btn" id="registerBtn">注册</button>
+            <span class="divider">|</span> <!-- 带样式的竖杠 -->
+            <button class="btn" id="loginBtn">登录</button>
+        </div>
+    </header>
+
+    <!-- 主体：欢迎文字 -->
+    <main>
+        <h1 class="welcome-title">欢迎来到我的小窝</h1>
+        <p class="welcome-english">WELCOME</p>
+        <a href="index.html" class="jump-btn" id="jumpToHome">跳转至主页</a>
+    </main>
+
+    <!-- 按钮点击事件逻辑（可根据需求修改跳转URL） -->
+    <script>
+        document.getElementById('registerBtn').addEventListener('click', function(e) {
+            e.preventDefault(); 
+            window.location.href = "register.html";
+            console.log('即将跳转到注册页面～');
+        });
+
+        document.getElementById('loginBtn').addEventListener('click', function(e) {
+            e.preventDefault(); 
+            window.location.href = "login.html";
+            console.log('即将跳转到登录页面～');
+        });
+
+        document.getElementById('jumpToHome').addEventListener('click', function(e) {
+            e.preventDefault(); 
+            window.location.href = "index.html";
+            console.log('即将跳转到主页～');
+        });
+    </script>
+</body>
+</html>
