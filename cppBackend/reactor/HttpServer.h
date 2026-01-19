@@ -7,10 +7,9 @@
 #include"Buffer.h"
 #include"../http/include/core/HttpRequest.h"
 #include"../http/include/core/HttpResponse.h"
-#include"../http/include/parsers/Http1Parser.h"
-#include"../http/include/parsers/IHttpParser.h"
 #include"../http/include/core/IHttpMessage.h"
 #include"../http/include/router/Router.h"
+#include"../http/include/HttpFacade.h"
 #include"../http/include/handler/AppHandlers.h"
 #include"../views/include/NotFoundHandler.h"
 #include"../views/include/MethodNotAllowedHandler.h"
@@ -42,6 +41,7 @@ private:
   ThreadPool threadpool_;                 // 工作线程池
   std::string static_path_;               // 静态资源路径
   std::shared_ptr<Router> router_;        // 路由管理器
+  std::shared_ptr<HttpFacade> http_facade_; // HTTP处理门面
   
   // 错误处理器
   std::shared_ptr<NotFoundHandler> notFoundHandler_;                 // 404处理器

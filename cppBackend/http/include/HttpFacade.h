@@ -21,6 +21,7 @@ enum class HttpServerResult {
     PARSE_FAILED = 3,
     VALIDATION_FAILED = 4,
     ROUTING_FAILED = 5,
+    NEED_MORE_DATA = 6,
     UNKNOWN_ERROR = -1
 };
 
@@ -57,6 +58,9 @@ public:
     void ConfigureServer(bool enable_ssl = false,
                         const std::string& cert_file = "",
                         const std::string& key_file = "");
+    
+    // 获取已消费的字节数
+    size_t GetConsumedBytes() const;
 
 private:
     // SSL处理阶段

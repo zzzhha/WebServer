@@ -122,6 +122,10 @@ HttpServerResult HttpFacade::ProcessParsing(std::string data,
 
     // 解析HTTP数据
     int parse_result = parser_->Parse(data, message);
+    if (parse_result == static_cast<int>(ParseResult::NEEDMOREDATA)) {
+        NotifyHttpParse("HTTP解析需要更多数据", "等待更多数据完成解析");
+        return HttpServerResult::NEED_MORE_DATA;
+    }
     if (parse_result != static_cast<int>(ParseResult::SUCCESS) || !message) {
         std::string error_detail = "解析返回码: " + std::to_string(parse_result);
         NotifyHttpParse("HTTP解析失败", error_detail);
@@ -273,4 +277,12 @@ void HttpFacade::ConfigureServer(bool enable_ssl,
             ssl_handler_ = SslFactory::CreateServer();
         }
     }
+}
+
+// 获取已消费的字节数
+size_t HttpFacade::GetConsumedBytes() const {
+    if (parser_) {
+        return parser_->GetConsumeBytes();
+    }
+    return 0;
 }

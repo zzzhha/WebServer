@@ -22,7 +22,9 @@ void Http2Parser::Reset() {
   prefaceReceied_ = false;
   nextStreamId_ = 1; */
 }
+size_t Http2Parser::GetConsumeBytes() const {
 
+}
 /* size_t Http2Parser::GetActiveStreamCount() const {
   return activeStreams_.size(); 
 } */

@@ -12,6 +12,7 @@ public:
   int Parse(const char* data, size_t len, std::unique_ptr<IHttpMessage>& out) override;
   void Reset() override;
   ~Http2Parser() override;
+  size_t GetConsumeBytes() const override;
 
 /*   void SetMaxConcurrentStreams(size_t max) { maxConcurrentStreams_ = max; }
   void SetInitialWindowSize(uint32_t size) { initialWindowSize_ = size; }

@@ -8,8 +8,8 @@
 #include<sstream>
 
 HttpServer::HttpServer(const std::string &ip,uint16_t port,int timeoutS,bool OptLinger,
-int sqlPort,const char*sqlUser,const char*sqlPwd,const char*dbName,
-int subthreadnum,int workthreadnum,int connpoolnum,const std::string&static_path)
+                       int sqlPort,const char*sqlUser,const char*sqlPwd,const char*dbName,
+                       int subthreadnum,int workthreadnum,int connpoolnum,const std::string&static_path)
       :tcpserver_(ip,port,subthreadnum,timeoutS,OptLinger),threadpool_(workthreadnum,"WORKS"),static_path_(static_path)
 {
   // 以下代码不是必须的，业务关心什么事件，就指定相应的回调函数。
@@ -22,6 +22,9 @@ int subthreadnum,int workthreadnum,int connpoolnum,const std::string&static_path
 LOGINFO("尝试连接数据库");
   SqlConnPool::Instance()->Init("localhost", sqlPort, sqlUser, sqlPwd, dbName, connpoolnum);
 LOGINFO("数据库连接成功");
+  
+  // 初始化HttpFacade
+  http_facade_ = std::make_shared<HttpFacade>();
   
   // 初始化路由器并设置路由
   router_ = std::make_shared<Router>();
@@ -62,15 +65,13 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
   // 将缓冲区数据转换为字符串供解析器使用
   std::string request_data(inputbuffer.peek(), inputbuffer.readableBytes());
   
-  // 使用 Http1Parser 解析请求
-  Http1Parser parser;
+  // 使用HttpFacade处理HTTP请求
   std::unique_ptr<IHttpMessage> message;
+  HttpServerResult result = http_facade_->Process(request_data, message);
   
-  int parse_result = parser.Parse(request_data, message);
-  
-  if (parse_result == static_cast<int>(ParseResult::SUCCESS) && message) {
+  if (result == HttpServerResult::SUCCESS && message) {
     // 解析成功，消费已解析的字节数
-    size_t consumed_bytes = parser.GetConsumeBytes();
+    size_t consumed_bytes = http_facade_->GetConsumedBytes();
     inputbuffer.consumeBytes(consumed_bytes);
     
     // 确保这是一个请求消息
@@ -131,12 +132,12 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
     
     LOGINFO("HTTP响应已发送 - 状态码: " + std::to_string(response.getStatusCodeInt()));
     
-  } else if (parse_result == static_cast<int>(ParseResult::NEEDMOREDATA)) {
+  } else if (result == HttpServerResult::NEED_MORE_DATA) {
     // 需要更多数据，等待下次接收
     LOGINFO("HTTP请求数据不完整，等待更多数据");
   } else {
     // 解析错误
-    LOGERROR("HTTP请求解析失败，错误码: " + std::to_string(parse_result));
+    LOGERROR("HTTP请求处理失败，错误码: " + std::to_string(static_cast<int>(result)));
     
     // 发送400 Bad Request响应
     HttpResponse error_response(HttpStatusCode::BAD_REQUEST);

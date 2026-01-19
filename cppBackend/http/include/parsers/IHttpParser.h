@@ -41,6 +41,8 @@ public:
   virtual void SetMaxHeaderCount(size_t count) { maxHeaderCount_ = count; }
   virtual void setMaxBodySize(size_t size) { maxBodySize_ = size; }
   virtual void setStrictHeaderCheck(bool strict) { strictHeaderCheck_ = strict; }
+  
+  virtual size_t GetConsumeBytes() const = 0;
 
 protected:
   size_t maxHeaderLineSize_ = 8192;
