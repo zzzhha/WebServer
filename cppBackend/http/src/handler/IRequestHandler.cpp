@@ -4,10 +4,10 @@
 IRequestHandler::~IRequestHandler() = default;
 
 bool IRequestHandler::CallNext(IHttpMessage& message) {
-  if (next_) {
-    return next_->Handle(message);
-  }
-  return true;
+    if (next_) {
+        return next_->Handle(message);
+    }
+    return true;
 }
 
 

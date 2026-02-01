@@ -1,9 +1,17 @@
 #include"HttpServer.h"
 #include"../mysql/sqlconnpool.h"
 #include"../http/include/handler/AppHandlers.h"
+#include"../http/include/router/Router.h"
 #include"../services/include/AuthService.h"
 #include"../services/include/DownloadService.h"
 #include"../services/include/StaticFileService.h"
+#include"../views/include/IndexPageHandler.h"
+#include"../views/include/WelcomePageHandler.h"
+#include"../views/include/LoginPageHandler.h"
+#include"../views/include/RegisterPageHandler.h"
+#include"../views/include/PicturePageHandler.h"
+#include"../views/include/VideoPageHandler.h"
+#include"../views/include/IPageHandler.h"
 #include<algorithm>
 #include<sstream>
 
@@ -26,9 +34,12 @@ LOGINFO("数据库连接成功");
   // 初始化HttpFacade
   http_facade_ = std::make_shared<HttpFacade>();
   
-  // 初始化路由器并设置路由
-  router_ = std::make_shared<Router>();
-  SetupRoutes();
+  // 初始化路由器并通过HttpFacade设置
+  auto router = std::make_shared<Router>();
+  http_facade_->SetRouter(router);
+  
+  // 注册路由
+  SetupRoutes(*router);
 }
 HttpServer::~HttpServer(){
 
@@ -56,18 +67,47 @@ void HttpServer::HandleError(spConnection conn){
   LOGERROR("connection error(fd="+std::to_string(conn->fd())+",ip="+conn->ip()+",port="+std::to_string(conn->port())+ ")");
 }
 void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock& buffer*/){
-  LOGINFO("处理了(fd="+std::to_string(conn->fd())+",ip="+conn->ip()+",port="+std::to_string(conn->port())+ ")的数据.");
+  // 检查连接是否为空
+  if (!conn) {
+    LOGERROR("连接为空，无法处理消息");
+    return;
+  }
+  
+  LOGINFO("处理了(fd="+std::to_string(conn->fd())+",ip="+conn->ip()+",port="+std::to_string(conn->port())+")的数据.");
   
   // 获取连接的输入缓冲区和输出缓冲区
   BufferBlock& inputbuffer = conn->getInputBuffer();
   BufferBlock& outputbuffer = conn->getOutputBuffer();
   
+  // 检查缓冲区是否有可读数据
+  size_t readable_bytes = inputbuffer.readableBytes();
+  if (readable_bytes == 0) {
+    LOGINFO("缓冲区无数据，跳过处理");
+    return;
+  }
+  
+  // 检查peek指针是否有效
+  const char* peek_ptr = inputbuffer.peek();
+  if (!peek_ptr) {
+    LOGERROR("缓冲区peek指针无效，无法处理消息");
+    return;
+  }
+  
   // 将缓冲区数据转换为字符串供解析器使用
-  std::string request_data(inputbuffer.peek(), inputbuffer.readableBytes());
+  std::string request_data(peek_ptr, readable_bytes);
+  
+  // 检查http_facade_是否初始化
+  if (!http_facade_) {
+    LOGERROR("HttpFacade未初始化，无法处理HTTP请求");
+    return;
+  }
+  
+  // 创建响应对象
+  HttpResponse response;
   
   // 使用HttpFacade处理HTTP请求
   std::unique_ptr<IHttpMessage> message;
-  HttpServerResult result = http_facade_->Process(request_data, message);
+  HttpServerResult result = http_facade_->Process(request_data, message, response);
   
   if (result == HttpServerResult::SUCCESS && message) {
     // 解析成功，消费已解析的字节数
@@ -86,9 +126,6 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
       LOGERROR("无法将消息转换为HttpRequest");
       return;
     }
-    
-    // 创建响应对象
-    HttpResponse response;
     
     // 获取请求路径和方法
     std::string path = request->GetPath();
@@ -109,7 +146,6 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
     ProcessRequest(request, response);
     
     // 设置响应头
-    response.SetVersion(request->GetVersion());
     if (keep_alive) {
       response.SetHeader("Connection", "keep-alive");
     } else {
@@ -119,31 +155,62 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
     // 序列化响应
     std::string response_data = response.Serialize();
     
+    // 检查响应数据是否为空
+    if (response_data.empty()) {
+      LOGERROR("响应数据为空，无法发送响应");
+      // 设置默认的404响应
+      response.SetStatusCode(HttpStatusCode::NOT_FOUND);
+      response.SetHeader("Content-Type", "text/plain");
+      response.SetHeader("Connection", "close");
+      response.SetBody("Not Found");
+      response_data = response.Serialize();
+    }
+    
     // 将响应数据写入输出缓冲区
     outputbuffer.append(response_data.c_str(), response_data.size());
     
     // 发送响应
     conn->send();
+    LOGINFO("HTTP响应已发送 - 状态码: " + std::to_string(response.getStatusCodeInt()) +" 响应数据大小: " + std::to_string(response_data.size()));
     
-    // 如果不是 keep-alive，关闭连接
-    if (!keep_alive) {
-      conn->closeConnection();
-    }
-    
-    LOGINFO("HTTP响应已发送 - 状态码: " + std::to_string(response.getStatusCodeInt()));
+    // 注意：不再立即关闭连接，而是等待数据发送完毕后通过回调函数关闭
+    // 连接的关闭由Connection::writecallback方法在数据发送完毕后处理
+    // 如果不是 keep-alive，Connection会在数据发送完毕后自动关闭
     
   } else if (result == HttpServerResult::NEED_MORE_DATA) {
     // 需要更多数据，等待下次接收
     LOGINFO("HTTP请求数据不完整，等待更多数据");
   } else {
-    // 解析错误
+    // 处理错误
     LOGERROR("HTTP请求处理失败，错误码: " + std::to_string(static_cast<int>(result)));
     
-    // 发送400 Bad Request响应
-    HttpResponse error_response(HttpStatusCode::BAD_REQUEST);
+    // 根据错误码生成相应的错误响应
+    HttpResponse error_response;
     error_response.SetHeader("Content-Type", "text/plain");
     error_response.SetHeader("Connection", "close");
-    error_response.SetBody("Bad Request");
+    
+    switch (result) {
+      case HttpServerResult::SSL_HANDSHAKE_FAILED:
+        error_response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
+        error_response.SetBody("SSL Handshake Failed");
+        break;
+      case HttpServerResult::PARSE_FAILED:
+        error_response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
+        error_response.SetBody("Bad Request");
+        break;
+      case HttpServerResult::VALIDATION_FAILED:
+        error_response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
+        error_response.SetBody("Validation Failed");
+        break;
+      case HttpServerResult::ROUTING_FAILED:
+        error_response.SetStatusCode(HttpStatusCode::NOT_FOUND);
+        error_response.SetBody("Not Found");
+        break;
+      default:
+        error_response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
+        error_response.SetBody("Bad Request");
+        break;
+    }
     
     std::string error_data = error_response.Serialize();
     outputbuffer.append(error_data.c_str(), error_data.size());
@@ -162,32 +229,38 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
  * - 调用对应的业务服务（AuthService、DownloadService等）
  * - 生成HTTP响应
  */
-namespace {
-  // 通用页面路由处理器：根据请求路径查找并执行对应的页面处理器
-  using PageHandlersMap = std::unordered_map<std::string, std::shared_ptr<IPageHandler>>;
+// 设置路由
+void HttpServer::SetupRoutes(Router& router) {
+  // 初始化页面处理器集合
+  auto pageHandlers = std::make_shared<std::unordered_map<std::string, std::shared_ptr<IPageHandler>>>();
+  (*pageHandlers)["/index.html"] = std::make_shared<IndexPageHandler>(static_path_);
+  (*pageHandlers)["/welcome.html"] = std::make_shared<WelcomePageHandler>(static_path_);
+  (*pageHandlers)["/login.html"] = std::make_shared<LoginPageHandler>(static_path_);
+  (*pageHandlers)["/register.html"] = std::make_shared<RegisterPageHandler>(static_path_);
+  (*pageHandlers)["/picture.html"] = std::make_shared<PicturePageHandler>(static_path_);
+  (*pageHandlers)["/video.html"] = std::make_shared<VideoPageHandler>(static_path_);
   
-  std::function<bool(IHttpMessage&, HttpResponse&, const RouteParams&)> CreatePageRouteHandler(PageHandlersMap& pageHandlers) {
-    return [&pageHandlers](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
-      auto* request = dynamic_cast<HttpRequest*>(&message);
-      if (!request || request->GetMethod() != HttpMethod::GET) {
-        return false;
-      }
-      
-      std::string path = request->GetPath();
-      if (path == "/") path = "/index.html"; // 根路径映射到 index.html
-      
-      auto it = pageHandlers.find(path);
-      if (it != pageHandlers.end() && it->second) {
-        it->second->Handle(request, response);
-        return true;
-      }
-      
+  // 创建页面路由处理器（使用lambda捕获pageHandlers的shared_ptr）
+  auto pageRouteHandler = [pageHandlers](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request || request->GetMethod() != HttpMethod::GET) {
       return false;
-    };
-  }
+    }
+    
+    std::string path = request->GetPath();
+    if (path == "/") path = "/index.html"; // 根路径映射到 index.html
+    
+    auto it = pageHandlers->find(path);
+    if (it != pageHandlers->end() && it->second) {
+      it->second->Handle(request, response);
+      return true;
+    }
+    
+    return false;
+  };
   
-  // 注册路由处理器：处理POST /register请求
-  bool RegisterRouteHandler(IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+  // 注册业务API路由
+  router.Post("/register", [](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
     auto* request = dynamic_cast<HttpRequest*>(&message);
     if (!request || request->GetMethod() != HttpMethod::POST) {
       return false;
@@ -212,10 +285,9 @@ namespace {
     }
     
     return true;
-  }
+  });
   
-  // 登录路由处理器：处理POST /login请求
-  bool LoginRouteHandler(IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+  router.Post("/login", [](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
     auto* request = dynamic_cast<HttpRequest*>(&message);
     if (!request || request->GetMethod() != HttpMethod::POST) {
       return false;
@@ -240,68 +312,38 @@ namespace {
     }
     
     return true;
-  }
+  });
   
-  // 下载路由处理器：处理GET /download/*请求
-  bool DownloadRouteHandler(IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+  router.Get("/download/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
     auto* request = dynamic_cast<HttpRequest*>(&message);
-    if (!request || request->GetMethod() != HttpMethod::GET) {
-      return false;
-    }
-    
-    // 调用DownloadService处理下载，使用params传递静态路径
-    std::string static_path = params.params_.at("static_path");
-    bool success = DownloadService::HandleDownload(request, response, static_path);
-    
-    return success;
-  }
-}
-
-// 设置路由
-void HttpServer::SetupRoutes() {
-  // 初始化错误处理器
-  notFoundHandler_ = std::make_shared<NotFoundHandler>(static_path_);
-  methodNotAllowedHandler_ = std::make_shared<MethodNotAllowedHandler>(static_path_);
-  badRequestHandler_ = std::make_shared<BadRequestHandler>(static_path_);
-  forbiddenHandler_ = std::make_shared<ForbiddenHandler>(static_path_);
+    if (!request) return false;
+    // 添加静态路径到路由参数中，供处理器使用
+    RouteParams new_params = params;
+    new_params.params_["static_path"] = static_path_;
+    return DownloadService::HandleDownload(request, response, static_path_);
+  });
   
-  // 初始化页面处理器集合
-  pageHandlers_["/index.html"] = std::make_shared<IndexPageHandler>(static_path_);
-  pageHandlers_["/welcome.html"] = std::make_shared<WelcomePageHandler>(static_path_);
-  pageHandlers_["/login.html"] = std::make_shared<LoginPageHandler>(static_path_);
-  pageHandlers_["/register.html"] = std::make_shared<RegisterPageHandler>(static_path_);
-  pageHandlers_["/picture.html"] = std::make_shared<PicturePageHandler>(static_path_);
-  pageHandlers_["/video.html"] = std::make_shared<VideoPageHandler>(static_path_);
+  // 注册静态文件路由
+  router.Get("/images/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return StaticFileService::HandleStaticFile(request, response, static_path_);
+  });
   
-  // 创建页面路由处理器（使用lambda捕获pageHandlers_）
-  auto pageRouteHandler = CreatePageRouteHandler(pageHandlers_);
+  router.Get("/video/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return StaticFileService::HandleStaticFile(request, response, static_path_);
+  });
   
-  // 注册业务API路由
-        router_->Post("/register", RegisterRouteHandler);
-        router_->Post("/login", LoginRouteHandler);
-        router_->Get("/download/*", DownloadRouteHandler);
-        
-        // 注册静态文件路由
-        router_->Get("/images/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
-            auto* request = dynamic_cast<HttpRequest*>(&message);
-            if (!request) return false;
-            return StaticFileService::HandleStaticFile(request, response, static_path_);
-        });
-        
-        router_->Get("/video/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
-            auto* request = dynamic_cast<HttpRequest*>(&message);
-            if (!request) return false;
-            return StaticFileService::HandleStaticFile(request, response, static_path_);
-        });
-        
-        // 注册页面路由（使用lambda表达式）
-        router_->Get("/", pageRouteHandler);
-        router_->Get("/index.html", pageRouteHandler);
-        router_->Get("/welcome.html", pageRouteHandler);
-        router_->Get("/login.html", pageRouteHandler);
-        router_->Get("/register.html", pageRouteHandler);
-        router_->Get("/picture.html", pageRouteHandler);
-        router_->Get("/video.html", pageRouteHandler);
+  // 注册页面路由（使用lambda表达式）
+  router.Get("/", pageRouteHandler);
+  router.Get("/index.html", pageRouteHandler);
+  router.Get("/welcome.html", pageRouteHandler);
+  router.Get("/login.html", pageRouteHandler);
+  router.Get("/register.html", pageRouteHandler);
+  router.Get("/picture.html", pageRouteHandler);
+  router.Get("/video.html", pageRouteHandler);
 }
 
 // 处理HTTP请求的辅助函数
@@ -309,77 +351,21 @@ void HttpServer::ProcessRequest(HttpRequest* request, HttpResponse& response) {
   // 设置响应版本
   response.SetVersion(request->GetVersion());
   
-  if (!router_) {
-    HandleBadRequest(request, response);
-    return;
-  }
+  // 注意：HttpServer不再自行实现路由功能，而是通过HttpFacade提供的接口使用路由
+  // 路由匹配和处理已经在HttpFacade::Process()中执行
   
-  // 调用Router::MatchRoute()获取匹配结果
-  RouteMatchInfo matchInfo = router_->MatchRoute(*request);
+  // 这里可以添加一些额外的处理逻辑（如果需要）
   
-  // 根据匹配结果进行switch分发
-  switch (matchInfo.result) {
-    case RouteMatchResult::SUCCESS:
-      // 匹配成功，执行处理器
-      if (matchInfo.handler) {
-        // 添加静态路径到路由参数中，供处理器使用
-        matchInfo.params.params_["static_path"] = static_path_;
-        // 执行处理器，直接传递response
-        matchInfo.handler(*request, response, matchInfo.params);
-        // response已经在handler中设置
-      } else {
-        // 如果没有handler，返回404
-        HandleNotFound(request, response);
-      }
-      break;
-      
-    case RouteMatchResult::NOT_FOUND:
-      HandleNotFound(request, response);
-      break;
-      
-    case RouteMatchResult::METHOD_NOT_ALLOWED:
-      HandleMethodNotAllowed(request, response, matchInfo.allowedMethods);
-      break;
-      
-    case RouteMatchResult::VALIDATION_FAILED:
-      HandleBadRequest(request, response);
-      break;
-      
-    case RouteMatchResult::MIDDLEWARE_REJECTED:
-      HandleForbidden(request, response);
-      break;
-      
-    default:
-      HandleBadRequest(request, response);
-      break;
+  // 检查响应是否已经设置了状态码
+  if (response.getStatusCodeInt() == 0) {
+    // 如果没有设置状态码，说明路由处理失败，返回404错误
+    response.SetStatusCode(HttpStatusCode::NOT_FOUND);
+    response.SetHeader("Content-Type", "text/plain");
+    response.SetBody("Not Found");
   }
 }
 
-// 错误处理方法实现
-void HttpServer::HandleNotFound(HttpRequest* request, HttpResponse& response) {
-  if (notFoundHandler_) {
-    notFoundHandler_->Handle(request, response);
-  }
-}
-
-void HttpServer::HandleMethodNotAllowed(HttpRequest* request, HttpResponse& response, 
-                                        const std::vector<HttpMethod>& allowedMethods) {
-  if (methodNotAllowedHandler_) {
-    methodNotAllowedHandler_->Handle(request, response, allowedMethods);
-  }
-}
-
-void HttpServer::HandleBadRequest(HttpRequest* request, HttpResponse& response) {
-  if (badRequestHandler_) {
-    badRequestHandler_->Handle(request, response);
-  }
-}
-
-void HttpServer::HandleForbidden(HttpRequest* request, HttpResponse& response) {
-  if (forbiddenHandler_) {
-    forbiddenHandler_->Handle(request, response);
-  }
-}
+// 错误处理方法已移除，现在由HttpFacade统一处理
 
 // 根据文件扩展名返回 Content-Type（已移动到 AppHandlers，这里保留作为备用）
 std::string HttpServer::GetContentType(const std::string& path) {

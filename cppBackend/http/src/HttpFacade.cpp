@@ -6,7 +6,9 @@
 #include "ssl/SslFactory.h"
 #include "factory/HttpParseFactory.h"
 #include "handler/HandlerChain.h"
+#include "router/Router.h"
 #include "core/HttpRequest.h"
+#include "core/HttpResponse.h"
 
 // 构造函数：初始化服务器组件
 HttpFacade::HttpFacade()
@@ -17,7 +19,13 @@ HttpFacade::HttpFacade()
 
 // 核心处理接口：统一的HTTP数据处理入口
 HttpServerResult HttpFacade::Process(const std::string& raw_data,
-                                   std::unique_ptr<IHttpMessage>& out_message) {
+                                   std::unique_ptr<IHttpMessage>& out_message,
+                                   HttpResponse& out_response) {
+    // 检查输入数据是否为空
+    if (raw_data.empty()) {
+        return HttpServerResult::PARSE_FAILED;
+    }
+    
     std::string processed_data = raw_data;
 
     // 1. SSL处理阶段
@@ -28,18 +36,21 @@ HttpServerResult HttpFacade::Process(const std::string& raw_data,
 
     // 2. HTTP解析阶段
     HttpServerResult parse_result = ProcessParsing(processed_data, out_message);
-    if (parse_result != HttpServerResult::SUCCESS) {
+    if (parse_result != HttpServerResult::SUCCESS || !out_message) {
         return parse_result;
     }
 
     // 3. 责任链验证阶段
-    HttpServerResult validation_result = ProcessValidation(*out_message);
+    if (!handler_chain_) {
+        return HttpServerResult::VALIDATION_FAILED;
+    }
+    HttpServerResult validation_result = ProcessValidation(*out_message, out_response);
     if (validation_result != HttpServerResult::SUCCESS) {
         return validation_result;
     }
 
-    // 4. 路由处理阶段（预留）
-    HttpServerResult routing_result = ProcessRouting(*out_message);
+    // 4. 路由处理阶段
+    HttpServerResult routing_result = ProcessRouting(*out_message, out_response);
     if (routing_result != HttpServerResult::SUCCESS) {
         return routing_result;
     }
@@ -147,7 +158,7 @@ HttpServerResult HttpFacade::ProcessParsing(std::string data,
 }
 
 // 责任链验证阶段：执行中间件和基础校验
-HttpServerResult HttpFacade::ProcessValidation(IHttpMessage& message) {
+HttpServerResult HttpFacade::ProcessValidation(IHttpMessage& message, HttpResponse& response) {
     NotifyValidation("开始责任链验证", "执行中间件和基础校验");
     
     if (!handler_chain_->Handle(message)) {
@@ -159,15 +170,27 @@ HttpServerResult HttpFacade::ProcessValidation(IHttpMessage& message) {
     return HttpServerResult::SUCCESS;
 }
 
-// 路由处理阶段：预留接口，目前直接返回成功
-HttpServerResult HttpFacade::ProcessRouting(IHttpMessage& message) {
+// 路由处理阶段：处理路由并返回响应
+HttpServerResult HttpFacade::ProcessRouting(IHttpMessage& message, HttpResponse& response) {
     if (router_) {
         NotifyRouting("开始路由处理", "使用配置的路由器处理请求");
-        if (!router_->Handle(message)) {
-            NotifyRouting("路由处理失败", "路由器无法处理该请求");
-            return HttpServerResult::ROUTING_FAILED;
+        
+        // 检查是否是请求消息
+        if (message.IsRequest()) {
+            auto* request = dynamic_cast<HttpRequest*>(&message);
+            if (request) {
+                // 设置响应版本
+                response.SetVersion(request->GetVersion());
+                
+                // 调用路由器处理请求
+                if (!router_->Handle(message, response)) {
+                    NotifyRouting("路由处理失败", "路由器无法处理该请求");
+                    return HttpServerResult::ROUTING_FAILED;
+                }
+                
+                NotifyRouting("路由处理成功", "请求已路由到对应的处理器");
+            }
         }
-        NotifyRouting("路由处理成功", "请求已路由到对应的处理器");
     } else {
         NotifyRouting("跳过路由处理", "未配置路由器，使用默认处理");
     }
@@ -260,7 +283,7 @@ void HttpFacade::AddMiddleware(std::shared_ptr<IRequestHandler> middleware) {
 }
 
 // 设置路由处理器
-void HttpFacade::SetRouter(std::shared_ptr<IRequestHandler> router) {
+void HttpFacade::SetRouter(std::shared_ptr<Router> router) {
     router_ = router;
 }
 

@@ -3,6 +3,7 @@
 #include <memory>
 
 class IHttpMessage;
+class HttpResponse;
 
 // 责任链节点接口：处理 HTTP 消息并可将处理权交给下一个节点
 class IRequestHandler {

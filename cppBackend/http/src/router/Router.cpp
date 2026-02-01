@@ -488,18 +488,15 @@ RouteMatchInfo Router::MatchRoute(HttpRequest& request) {
   return matchInfo;
 }
 
-bool Router::Handle(IHttpMessage& message) {
+bool Router::Handle(IHttpMessage& message, HttpResponse& response) {
   if (!message.IsRequest()) {
-    return CallNext(message);
+    return false;
   }
   
   auto* request = dynamic_cast<HttpRequest*>(&message);
   if (!request) {
     return false;
   }
-  
-  HttpResponse response;
-  response.SetVersion(request->GetVersion());
   
   // 调用MatchRoute进行路由匹配（MatchRoute内部已经执行了中间件）
   RouteMatchInfo matchInfo = MatchRoute(*request);

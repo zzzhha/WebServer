@@ -24,13 +24,5 @@ void SetJsonResponse(HttpResponse& response, bool success, const std::string& me
 // 获取 Content-Type 根据文件扩展名
 std::string GetContentType(const std::string& path);
 
-// 注意：以下函数已废弃，业务逻辑已迁移到services层
-// - RegisterRouteHandler() - 已迁移到HttpServer.cpp
-// - LoginRouteHandler() - 已迁移到HttpServer.cpp
-// - DownloadRouteHandler() - 已迁移到HttpServer.cpp
-// - StaticFileRouteHandler() - 已迁移到StaticFileService
-// - HandleRegister() - 已迁移到HttpServer.cpp中的RegisterRouteHandler()
-// - HandleLogin() - 已迁移到HttpServer.cpp中的LoginRouteHandler()
-// - HandleDownload() - 已迁移到HttpServer.cpp中的DownloadRouteHandler()
-// - HandleStaticFile() - 已迁移到StaticFileService
+
 

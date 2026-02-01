@@ -11,17 +11,6 @@
 #include"../http/include/router/Router.h"
 #include"../http/include/HttpFacade.h"
 #include"../http/include/handler/AppHandlers.h"
-#include"../views/include/NotFoundHandler.h"
-#include"../views/include/MethodNotAllowedHandler.h"
-#include"../views/include/BadRequestHandler.h"
-#include"../views/include/ForbiddenHandler.h"
-#include"../views/include/WelcomePageHandler.h"
-#include"../views/include/IndexPageHandler.h"
-#include"../views/include/LoginPageHandler.h"
-#include"../views/include/RegisterPageHandler.h"
-#include"../views/include/PicturePageHandler.h"
-#include"../views/include/VideoPageHandler.h"
-#include"../views/include/IPageHandler.h"
 #include"../services/include/AuthService.h"
 #include"../services/include/DownloadService.h"
 #include <memory>
@@ -40,17 +29,7 @@ private:
   TcpServer tcpserver_;                   // TCP服务器实例
   ThreadPool threadpool_;                 // 工作线程池
   std::string static_path_;               // 静态资源路径
-  std::shared_ptr<Router> router_;        // 路由管理器
   std::shared_ptr<HttpFacade> http_facade_; // HTTP处理门面
-  
-  // 错误处理器
-  std::shared_ptr<NotFoundHandler> notFoundHandler_;                 // 404处理器
-  std::shared_ptr<MethodNotAllowedHandler> methodNotAllowedHandler_; // 405处理器
-  std::shared_ptr<BadRequestHandler> badRequestHandler_;             // 400处理器
-  std::shared_ptr<ForbiddenHandler> forbiddenHandler_;               // 403处理器
-  
-  // 页面处理器集合
-  std::unordered_map<std::string, std::shared_ptr<IPageHandler>> pageHandlers_;  // 路径到页面处理器的映射
   
 public:
   /**
@@ -128,8 +107,9 @@ private:
   
   /**
    * 设置路由规则
+   * @param router 路由管理器实例
    */
-  void SetupRoutes();
+  void SetupRoutes(Router& router);
   
   /**
    * 根据文件扩展名获取Content-Type
@@ -137,33 +117,4 @@ private:
    * @return Content-Type字符串
    */
   std::string GetContentType(const std::string& path);
-  
-  /**
-   * 处理404错误
-   * @param request HTTP请求对象
-   * @param response HTTP响应对象
-   */
-  void HandleNotFound(HttpRequest* request, HttpResponse& response);
-  
-  /**
-   * 处理405错误
-   * @param request HTTP请求对象
-   * @param response HTTP响应对象
-   * @param allowedMethods 允许的HTTP方法列表
-   */
-  void HandleMethodNotAllowed(HttpRequest* request, HttpResponse& response, const std::vector<HttpMethod>& allowedMethods);
-  
-  /**
-   * 处理400错误
-   * @param request HTTP请求对象
-   * @param response HTTP响应对象
-   */
-  void HandleBadRequest(HttpRequest* request, HttpResponse& response);
-  
-  /**
-   * 处理403错误
-   * @param request HTTP请求对象
-   * @param response HTTP响应对象
-   */
-  void HandleForbidden(HttpRequest* request, HttpResponse& response);
 };

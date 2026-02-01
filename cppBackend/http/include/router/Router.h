@@ -149,13 +149,13 @@ private:
  * - 提供路由匹配功能（MatchRoute）
  * - 错误处理由HttpServer层负责
  */
-class Router : public IRequestHandler {
+class Router {
 public:
   Router();
-  ~Router() override = default;
+  ~Router() = default;
   
-  // 处理请求：实现IRequestHandler接口
-  bool Handle(IHttpMessage& message) override;
+  // 处理请求
+  bool Handle(IHttpMessage& message, HttpResponse& response);
   
   // 路由匹配：返回匹配结果信息（不执行处理器）
   RouteMatchInfo MatchRoute(HttpRequest& request);

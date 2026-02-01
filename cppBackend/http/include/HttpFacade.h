@@ -12,6 +12,8 @@ class ISslHandler;
 class IHttpParser;
 class HandlerChain;
 class IRequestHandler;
+class HttpResponse;
+class Router;
 
 // HTTP服务器处理结果
 enum class HttpServerResult {
@@ -32,9 +34,10 @@ public:
     HttpFacade();
     virtual ~HttpFacade() = default;
 
-    // 核心处理接口：处理原始HTTP数据
-    HttpServerResult Process(const std::string& raw_data,
-                           std::unique_ptr<IHttpMessage>& out_message);
+    // 核心处理接口：统一的HTTP数据处理入口
+  HttpServerResult Process(const std::string& raw_data,
+                           std::unique_ptr<IHttpMessage>& out_message,
+                           HttpResponse& out_response);
 
     // 添加观察者（用于监听HTTP消息处理过程）
     void AddObserver(std::shared_ptr<IHttpObserver> observer);
@@ -52,7 +55,7 @@ public:
     void AddMiddleware(std::shared_ptr<IRequestHandler> middleware);
 
     // 设置路由处理器（预留接口）
-    void SetRouter(std::shared_ptr<IRequestHandler> router);
+    void SetRouter(std::shared_ptr<Router> router);
 
     // 配置服务器
     void ConfigureServer(bool enable_ssl = false,
@@ -72,10 +75,10 @@ private:
                                   std::unique_ptr<IHttpMessage>& message);
 
     // 责任链验证阶段
-    HttpServerResult ProcessValidation(IHttpMessage& message);
+    HttpServerResult ProcessValidation(IHttpMessage& message, HttpResponse& response);
 
-    // 路由处理阶段（预留）
-    HttpServerResult ProcessRouting(IHttpMessage& message);
+    // 路由处理阶段
+    HttpServerResult ProcessRouting(IHttpMessage& message, HttpResponse& response);
 
     // 通知观察者（处理完成事件）
     void NotifyObservers(const IHttpMessage& message);
@@ -104,8 +107,8 @@ private:
     // 责任链相关
     std::shared_ptr<HandlerChain> handler_chain_;
 
-    // 路由处理器（预留）
-    std::shared_ptr<IRequestHandler> router_;
+    // 路由处理器
+    std::shared_ptr<Router> router_;
 
     // 观察者列表
     std::vector<std::shared_ptr<IHttpObserver>> observers_;
