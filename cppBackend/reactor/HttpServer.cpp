@@ -27,9 +27,7 @@ HttpServer::HttpServer(const std::string &ip,uint16_t port,int timeoutS,bool Opt
   tcpserver_.setonmessage(std::bind(&HttpServer::HandleMessage, this, std::placeholders::_1/*, std::placeholders::_2*/));
   tcpserver_.setsendcomplete(std::bind(&HttpServer::HandleSendComplete, this, std::placeholders::_1));
   //tcpserver_.settimeout(std::bind(&HttpServer::HandleTimeOut, this, std::placeholders::_1));
-LOGINFO("尝试连接数据库");
   SqlConnPool::Instance()->Init("localhost", sqlPort, sqlUser, sqlPwd, dbName, connpoolnum);
-LOGINFO("数据库连接成功");
   
   // 初始化HttpFacade
   http_facade_ = std::make_shared<HttpFacade>();

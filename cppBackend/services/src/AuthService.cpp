@@ -3,6 +3,60 @@
 #include "../../logger/log_fac.h"
 #include <algorithm>
 #include <cctype>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <cstring>
+#include <sstream>
+#include <iomanip>
+
+// 生成随机盐值
+std::string GenerateSalt() {
+    const int SALT_SIZE = 16;
+    unsigned char salt[SALT_SIZE];
+    RAND_bytes(salt, SALT_SIZE);
+
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (int i = 0; i < SALT_SIZE; ++i) {
+        ss << std::setw(2) << static_cast<unsigned int>(salt[i]);
+    }
+    return ss.str();
+}
+
+// 对密码进行哈希处理（使用PBKDF2算法）
+std::string HashPassword(const std::string& password, const std::string& salt) {
+    const int ITERATIONS = 10000;
+    const int KEY_LENGTH = 32;
+    unsigned char key[KEY_LENGTH];
+
+    PKCS5_PBKDF2_HMAC(password.c_str(), password.length(),
+                      reinterpret_cast<const unsigned char*>(salt.c_str()), salt.length(),
+                      ITERATIONS, EVP_sha256(), KEY_LENGTH, key);
+
+    std::stringstream ss;
+    ss << salt << ":";
+    ss << std::hex << std::setfill('0');
+    for (int i = 0; i < KEY_LENGTH; ++i) {
+        ss << std::setw(2) << static_cast<unsigned int>(key[i]);
+    }
+    return ss.str();
+}
+
+// 验证密码是否匹配
+bool VerifyPassword(const std::string& password, const std::string& stored_hash) {
+    // 从存储的哈希中提取盐值
+    size_t colon_pos = stored_hash.find(':');
+    if (colon_pos == std::string::npos) {
+        return false;
+    }
+    std::string salt = stored_hash.substr(0, colon_pos);
+
+    // 对输入的密码使用相同的盐值进行哈希
+    std::string computed_hash = HashPassword(password, salt);
+
+    // 比较计算出的哈希和存储的哈希
+    return computed_hash == stored_hash;
+}
 
 // 处理注册请求
 bool AuthService::HandleRegister(const std::string& username, const std::string& password) {
@@ -30,8 +84,12 @@ bool AuthService::HandleRegister(const std::string& username, const std::string&
         return false;
     }
 
+    // 生成盐值并对密码进行哈希处理
+    std::string salt = GenerateSalt();
+    std::string password_hash = HashPassword(password, salt);
+
     // 如果不存在，调用UserDao插入用户
-    if (!UserDao::InsertUser(username, password)) {
+    if (!UserDao::InsertUser(username, password_hash)) {
         LOGERROR("注册失败：数据库插入失败 - " + username);
         return false;
     }
@@ -56,7 +114,7 @@ bool AuthService::HandleLogin(const std::string& username, const std::string& pa
     }
 
     // 业务判断：验证密码是否匹配
-    if (userInfo->password != password) {
+    if (!VerifyPassword(password, userInfo->password_hash)) {
         LOGWARNING("登录失败：密码错误 - " + username);
         return false;
     }

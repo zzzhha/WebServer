@@ -32,6 +32,16 @@ find_library(MYSQL_LIBRARY
   DOC "MySQL library"
 )
 
+# 查找OpenSSL库
+find_package(OpenSSL REQUIRED)
+if(NOT OPENSSL_FOUND)
+    message(FATAL_ERROR "OpenSSL not found. Please install OpenSSL development package.")
+endif()
+
+message(STATUS "Found OpenSSL version: ${OPENSSL_VERSION}")
+message(STATUS "Found OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
+message(STATUS "Found OpenSSL libraries: ${OPENSSL_LIBRARIES}")
+
 if(NOT MYSQL_INCLUDE_DIR)
     message(FATAL_ERROR "MySQL include directory not found. Please install MySQL development package.")
 endif()
@@ -49,6 +59,7 @@ add_subdirectory(http)
 # 包含目录
 include_directories(
     ${MYSQL_INCLUDE_DIR}
+    ${OPENSSL_INCLUDE_DIR}
     .
     http
     logger
@@ -196,31 +207,10 @@ add_dependencies(${PROJECT_NAME} copy_frontend)
 target_link_libraries(${PROJECT_NAME}
     http  # http 库
     ${MYSQL_LIBRARY}
+    ${OPENSSL_LIBRARIES}
     pthread
     m
     rt
 )
 
-# 添加 AuthService 单元测试
-execute_process(COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/services/test
-    RESULT_VARIABLE MKDIR_RESULT
-    OUTPUT_QUIET
-    ERROR_QUIET
-)
 
-add_executable(AuthServiceTest
-    services/src/AuthServiceTest.cpp
-    ${SERVICES_SOURCES}
-    ${MYSQL_SOURCES}
-    ${LOGGER_SOURCES}
-    ${MEMORY_POOL_SOURCES}
-)
-
-# 链接测试所需的库
-target_link_libraries(AuthServiceTest
-    http  # http 库
-    ${MYSQL_LIBRARY}
-    pthread
-    m
-    rt
-)

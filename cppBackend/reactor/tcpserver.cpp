@@ -12,7 +12,6 @@ ts_tcp_conn_timeout_s_(timeoutS),time_wheel_(1,60),log(LogFac::Instance()){
   acceptor_.setnewconnecioncb(std::bind(&TcpServer::newconnection,this,std::placeholders::_1));
 
   //创建从事件循环
-LOGDEBUG("tcp:创建从事件循环"+std::to_string(threadnum_)+"个");
   for(int i=0;i<threadnum_;i++){
     subloops_.emplace_back(new EventLoop(/*false,30,timeoutMs/1000*/));   //创建从事件循环，存入subloops_容器中
     subloops_[i]->setepolltimeoutcallback(std::bind(&TcpServer::epolltimeout,this,std::placeholders::_1));
