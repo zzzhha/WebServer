@@ -43,23 +43,28 @@ void TcpServer::stop(){
   threadpool_.stop();
 }
 void TcpServer::newconnection(std::unique_ptr<Socket>clientsock){
-  spConnection conn(new Connection(subloops_[clientsock->fd()%threadnum_].get(),std::move(clientsock)));  
+LOGDEBUG("设置新连接");
+  int fd = clientsock->fd();
+  int loop_index = fd % threadnum_;
+  
+  spConnection conn(new Connection(subloops_[loop_index].get(),std::move(clientsock))); 
   conn->setclosecallback(std::bind(&TcpServer::closeconnection,this,std::placeholders::_1));
   conn->seterrorcallback(std::bind(&TcpServer::errorconnection,this,std::placeholders::_1));
   conn->setonmessagecallback(std::bind(&TcpServer::message,this,std::placeholders::_1/*暂且先注释了等后面需要用到工作线程在开出来,std::placeholders::_2*/));
   conn->setsendcompletecallback(std::bind(&TcpServer::sendcomplete,this,std::placeholders::_1));
-  
+LOGDEBUG("tcp:设置发送完成回调");
   //定时器
   //conn->setupdatetimercallback(std::bind(&TcpServer::update_conn_timeout_time,this,std::placeholders::_1));
   ////conn->setclosetimercallback(std::bind(&TcpServer::closeconntimer,this,std::placeholders::_1));
   //add_new_tcp_conn(conn);//增加一个定时器，设定时间，超过时间后将关闭连接
   //时间轮
   conn->setupdatetimercallback(std::bind(&TcpServer::update_conn_timeout_time,this,std::placeholders::_1));
+LOGDEBUG("tcp:设置定时器");
   add_new_conn_timernode(conn);
   {
     std::lock_guard<std::mutex> lock(mmutex_);
 LOGDEBUG("tcp:存放入map容器");
-    conns_[conn->fd()]=conn; //把conn存放到map容器中
+    conns_[fd]=conn; //把conn存放到map容器中
   }
   //时间戳
   //subloops_[conn->fd()%threadnum_]->newconnection(conn);      //把conn存放到EventLoop的map容器中
