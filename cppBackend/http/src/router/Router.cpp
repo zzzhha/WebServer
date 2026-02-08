@@ -4,6 +4,7 @@
 #include <sstream>
 #include <cctype>
 #include <unordered_set>
+#include <mutex>
 
 // ========== 工具函数实现 ==========
 

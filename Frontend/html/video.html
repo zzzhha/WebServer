@@ -231,21 +231,22 @@
     </div>
 
     <script>
-        // 登录状态判断（与主页逻辑一致）
+        // 登录状态判断（从localStorage读取JWT token和用户名）
         function checkLoginStatus() {
             const loginBtn = document.getElementById('loginBtn');
             const registerBtn = document.getElementById('registerBtn');
             const divider = document.getElementById('divider');
             const userGreeting = document.getElementById('userGreeting');
             
-            const user = localStorage.getItem('currentUser');
+            const username = localStorage.getItem('username');
+            const token = localStorage.getItem('jwt_token');
             
-            if (user) {
+            if (username && token) {
                 loginBtn.style.display = 'none';
                 registerBtn.style.display = 'none';
                 divider.style.display = 'none';
                 userGreeting.style.display = 'block';
-                userGreeting.textContent = `欢迎您，${user}`;
+                userGreeting.textContent = `欢迎您，${username}`;
             } else {
                 loginBtn.style.display = 'block';
                 registerBtn.style.display = 'block';

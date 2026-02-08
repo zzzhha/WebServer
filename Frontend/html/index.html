@@ -225,8 +225,7 @@
     </div>
 
     <script>
-        // 检查用户登录状态（实际项目中可能从后端获取或从cookie/localStorage读取）
-        // 这里使用localStorage模拟登录状态存储
+        // 检查用户登录状态（从localStorage读取JWT token和用户名）
         function checkLoginStatus() {
             const loginBtn = document.getElementById('loginBtn');
             const registerBtn = document.getElementById('registerBtn');
@@ -234,15 +233,16 @@
             const userGreeting = document.getElementById('userGreeting');
             
             // 从localStorage获取用户信息
-            const user = localStorage.getItem('currentUser');
+            const username = localStorage.getItem('username');
+            const token = localStorage.getItem('jwt_token');
             
-            if (user) {
+            if (username && token) {
                 // 用户已登录，显示欢迎信息，隐藏登录注册按钮
                 loginBtn.style.display = 'none';
                 registerBtn.style.display = 'none';
                 divider.style.display = 'none';
                 userGreeting.style.display = 'block';
-                userGreeting.textContent = `欢迎您，${user}`;
+                userGreeting.textContent = `欢迎您，${username}`;
             } else {
                 // 用户未登录，显示登录注册按钮
                 loginBtn.style.display = 'block';

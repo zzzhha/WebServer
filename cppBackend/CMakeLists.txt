@@ -70,6 +70,7 @@ include_directories(
     http/include
     services/include
     views/include
+    auth/jwt
 )
 
 # HTTP模块源文件
@@ -126,7 +127,9 @@ set(MEMORY_POOL_SOURCES
 # MySQL模块源文件
 set(MYSQL_SOURCES
     mysql/User.h
-    mysql/User.cpp
+    mysql/entities/UserEntity.h
+    mysql/dao/UserDao.h
+    mysql/dao/UserDao.cpp
     mysql/sqlconnpool.cpp
     mysql/sqlconnpool.h
     mysql/sqlConnRAII.h
@@ -137,6 +140,12 @@ set(SERVICES_SOURCES
     services/src/AuthService.cpp
     services/src/DownloadService.cpp
     services/src/StaticFileService.cpp
+)
+
+# Auth模块源文件（JWT认证）
+set(AUTH_SOURCES
+    auth/jwt/JwtUtil.h
+    auth/jwt/JwtUtil.cpp
 )
 
 # Views模块源文件（界面跳转层）
@@ -198,6 +207,7 @@ add_executable(${PROJECT_NAME}
     ${TIMER_SOURCES}
     ${SERVICES_SOURCES}
     ${VIEWS_SOURCES}
+    ${AUTH_SOURCES}
 )
 
 # 确保前端资源在后端构建之前复制

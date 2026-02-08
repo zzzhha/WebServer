@@ -138,8 +138,8 @@
             background-color: rgba(231, 76, 60, 0.1);
         }
         .success-message {
-            color: #e74c3c; 
-            background-color: rgba(231, 76, 60, 0.1); /* 淡绿色背景 */
+            color: #27ae60; 
+            background-color: rgba(39, 174, 96, 0.1); /* 淡绿色背景 */
         }
 
         /* 响应式布局 */
@@ -245,7 +245,12 @@
                 
                 if (response.ok && result.success) {
                     // 登录成功处理
-                    showMessage(successMessage, '登录成功！即将跳转到登录页...');
+                    if (result.token) {
+                        // 保存JWT token到localStorage
+                        localStorage.setItem('jwt_token', result.token);
+                        localStorage.setItem('username', usernameInput.value.trim());
+                    }
+                    showMessage(successMessage, '登录成功！即将跳转到首页...');
                     setTimeout(() => {
                         window.location.href = 'index.html';
                     }, 2000);

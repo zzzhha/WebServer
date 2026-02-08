@@ -210,15 +210,13 @@
             <a href="index.html" class="back-btn">← 返回主页</a>
             <div class="logo">图片展示</div>
         </div>
-        <div class="nav-links">
-            <!-- 模拟已登录状态：实际需后端/JS动态判断 -->
-            <span class="greeting">欢迎您，测试用户</span>
-            <!-- 未登录时显示：
-            <a href="login.html">登录</a>
-            <span class="divider">|</span>
-            <a href="register.html">注册</a>
-            <span class="divider">|</span>
-            -->
+        <div class="nav-links" id="navLinks">
+            <!-- 登录状态将通过JavaScript动态切换 -->
+            <span class="greeting" id="userGreeting" style="display: none;"></span>
+            <a href="login.html" id="loginLink" style="display: none;">登录</a>
+            <span class="divider" id="divider" style="display: none;">|</span>
+            <a href="register.html" id="registerLink" style="display: none;">注册</a>
+            <span class="divider" id="divider2" style="display: none;">|</span>
             <a href="video.html">视频</a>
         </div>
     </header>
@@ -269,6 +267,37 @@
     </div>
 
     <script>
+        // 检查用户登录状态（从localStorage读取JWT token和用户名）
+        function checkLoginStatus() {
+            const username = localStorage.getItem('username');
+            const token = localStorage.getItem('jwt_token');
+            const userGreeting = document.getElementById('userGreeting');
+            const loginLink = document.getElementById('loginLink');
+            const registerLink = document.getElementById('registerLink');
+            const divider = document.getElementById('divider');
+            const divider2 = document.getElementById('divider2');
+            
+            if (username && token) {
+                // 用户已登录
+                userGreeting.style.display = 'block';
+                userGreeting.textContent = `欢迎您，${username}`;
+                loginLink.style.display = 'none';
+                registerLink.style.display = 'none';
+                divider.style.display = 'none';
+                divider2.style.display = 'none';
+            } else {
+                // 用户未登录
+                userGreeting.style.display = 'none';
+                loginLink.style.display = 'block';
+                registerLink.style.display = 'block';
+                divider.style.display = 'inline-block';
+                divider2.style.display = 'inline-block';
+            }
+        }
+
+        // 页面加载时检查登录状态
+        window.onload = checkLoginStatus;
+
         // 放大图片功能
         const zoomBtns = document.querySelectorAll('.zoom-btn');
         const zoomModal = document.getElementById('zoomModal');

@@ -27,6 +27,7 @@ private:
   std::function<void(spConnection)>sendcompletecallback_;   //发送完数据后的回调函数，将回调TcpServer::sendcomplete()
   std::function<void(spConnection)>closetimercallback_;
   std::atomic_bool disconnect_;    //客户端连接是否断开，如果断开设置为true
+  std::atomic_bool close_on_send_complete_;  //发送完成后是否关闭连接
  
   ///时间戳
   ///Timestamp lasttime_;             //时间戳，创建Connection对象时为当前时间，没收到一个报文，就更新时间戳为当前时间
@@ -70,6 +71,10 @@ public:
   
   // 关闭连接的接口
   void closeConnection() { closecallback(); }
+  
+  // 设置发送完成后是否关闭连接
+  void setCloseOnSendComplete(bool close) { close_on_send_complete_ = close; }
+  bool getCloseOnSendComplete() const { return close_on_send_complete_; }
 
   //时间戳
   ///bool timeout(time_t now,int val); //判断tcp连接是否超时

@@ -99,28 +99,74 @@ bool AuthService::HandleRegister(const std::string& username, const std::string&
 }
 
 // 处理登录请求
-bool AuthService::HandleLogin(const std::string& username, const std::string& password) {
+std::optional<std::string> AuthService::HandleLogin(const std::string& username, const std::string& password) {
     // 业务验证：检查用户名和密码是否为空
     if (username.empty() || password.empty()) {
         LOGWARNING("登录失败：用户名或密码为空");
-        return false;
+        return std::nullopt;
     }
 
     // 调用UserDao查询用户
     auto userInfo = UserDao::QueryUserByUsername(username);
     if (!userInfo.has_value()) {
         LOGWARNING("登录失败：用户不存在 - " + username);
-        return false;
+        return std::nullopt;
     }
 
     // 业务判断：验证密码是否匹配
     if (!VerifyPassword(password, userInfo->password_hash)) {
         LOGWARNING("登录失败：密码错误 - " + username);
-        return false;
+        return std::nullopt;
+    }
+
+    // 登录成功，生成JWT token
+    std::string token = JwtUtil::GenerateToken(username, userInfo->id);
+    if (token.empty()) {
+        LOGERROR("登录成功但生成token失败：用户名 = " + username);
+        return std::nullopt;
     }
 
     LOGINFO("登录成功：用户名 = " + username);
+    return token;
+}
+
+// 验证JWT token
+bool AuthService::ValidateToken(const std::string& token) {
+    if (token.empty()) {
+        LOGWARNING("ValidateToken失败：token为空");
+        return false;
+    }
+
+    auto claims = JwtUtil::ValidateToken(token);
+    if (!claims) {
+        LOGWARNING("ValidateToken失败：token无效");
+        return false;
+    }
+
     return true;
+}
+
+// 从token获取用户信息
+std::optional<UserInfo> AuthService::GetUserFromToken(const std::string& token) {
+    if (token.empty()) {
+        LOGWARNING("GetUserFromToken失败：token为空");
+        return std::nullopt;
+    }
+
+    auto claims = JwtUtil::ValidateToken(token);
+    if (!claims) {
+        LOGWARNING("GetUserFromToken失败：token无效");
+        return std::nullopt;
+    }
+
+    // 从数据库查询用户信息
+    auto userInfo = UserDao::QueryUserByUsername(claims->username);
+    if (!userInfo.has_value()) {
+        LOGWARNING("GetUserFromToken失败：用户不存在 - " + claims->username);
+        return std::nullopt;
+    }
+
+    return userInfo;
 }
 
 // 验证用户名格式

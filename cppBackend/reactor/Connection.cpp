@@ -2,7 +2,7 @@
 
 
 Connection::Connection(EventLoop* loop,std::unique_ptr<Socket>clientsock)
-:loop_(loop),clientsock_(std::move(clientsock)),disconnect_(false),clientchannel_(new Channel(loop_,clientsock_->fd())){
+:loop_(loop),clientsock_(std::move(clientsock)),disconnect_(false),close_on_send_complete_(false),clientchannel_(new Channel(loop_,clientsock_->fd())){
   //clientchannel_=new Channel(loop_,clientsock_->fd());   
   clientchannel_->setreadcallback (std::bind(&Connection::onmessage,this));
   clientchannel_->setclosecallback(std::bind(&Connection::closecallback,this));
@@ -72,6 +72,10 @@ LOGDEBUG("唤起写事件");
 }
 void Connection::writecallback(){
   
+  if(disconnect_){
+    return;
+  }
+  
   //新版本
 LOGDEBUG("准备发送数据");
   const size_t max_ioves =16;
@@ -95,7 +99,13 @@ LOGDEBUG("准备发送数据");
     if(outputbuffer_.readableBytes() ==0){
       clientchannel_->disablewriting();
 LOGDEBUG("发送数据完毕");
-      sendcompletecallback_(shared_from_this());
+      if(sendcompletecallback_ && !disconnect_){
+        sendcompletecallback_(shared_from_this());
+      }
+      // 如果设置了发送完成后关闭连接，则关闭连接
+      if(close_on_send_complete_ && !disconnect_){
+        closecallback();
+      }
 
     }
   }else if(nwritten == -1){
@@ -107,10 +117,12 @@ LOGDEBUG("发送数据完毕");
       errorcallback();
     }
   }
-
 }
 
 void Connection::onmessage(){
+  if(disconnect_){
+    return;
+  }
   char buffer[1024];
   while (true){
     bzero(&buffer, sizeof(buffer));
@@ -120,8 +132,13 @@ void Connection::onmessage(){
     }else if(nread==-1 && errno == EINTR){
       continue;
     }else if(nread== -1 && ((errno==EAGAIN)|| (errno == EWOULDBLOCK))){//全部数据读完
+      if(disconnect_){
+        return;
+      }
       //定时器
-      updatetimercallback_(shared_from_this());
+      if(updatetimercallback_) {
+        updatetimercallback_(shared_from_this());
+      }
       //时间戳
       //lasttime_=Timestamp::now();
       

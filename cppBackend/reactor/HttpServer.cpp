@@ -148,6 +148,7 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
       response.SetHeader("Connection", "keep-alive");
     } else {
       response.SetHeader("Connection", "close");
+      conn->setCloseOnSendComplete(true);
     }
     
     // 序列化响应
@@ -300,18 +301,29 @@ void HttpServer::SetupRoutes(Router& router) {
     std::string password = form_data.count("password") > 0 ? form_data.at("password") : "";
     
     // 调用AuthService处理登录
-    bool success = AuthService::HandleLogin(username, password);
+    auto login_result = AuthService::HandleLogin(username, password);
     
     // 生成JSON响应
-    if (success) {
-      SetJsonResponse(response, true, "登录成功", HttpStatusCode::OK);
+    if (login_result) {
+      // 登录成功，获取token
+      std::string token = login_result.value();
+      // 在响应中包含token
+      response.SetHeader("Content-Type", "application/json");
+      response.SetStatusCode(HttpStatusCode::OK);
+      std::string json_response = "{\"success\":true,\"message\":\"登录成功\",\"token\":\"" + token + "\"}";
+      response.SetBody(json_response);
+      response.SetHeader("Content-Length", std::to_string(response.GetBodyLength()));
     } else {
       SetJsonResponse(response, false, "登录失败，用户名或密码错误", HttpStatusCode::UNAUTHORIZED);
     }
     
     return true;
   });
-  
+  router.Get("/favicon.ico", [](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    response.SetStatusCode(HttpStatusCode::NO_CONTENT);
+    response.SetHeader("Content-Type", "image/x-icon");
+    return true;
+  });
   router.Get("/download/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
     auto* request = dynamic_cast<HttpRequest*>(&message);
     if (!request) return false;
@@ -363,7 +375,6 @@ void HttpServer::ProcessRequest(HttpRequest* request, HttpResponse& response) {
   }
 }
 
-// 错误处理方法已移除，现在由HttpFacade统一处理
 
 // 根据文件扩展名返回 Content-Type（已移动到 AppHandlers，这里保留作为备用）
 std::string HttpServer::GetContentType(const std::string& path) {
