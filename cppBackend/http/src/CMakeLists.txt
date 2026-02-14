@@ -23,6 +23,7 @@ set(HANDLER_SOURCES
 
 set(FACTORY_SOURCES
   factory/ParseFactory.cpp
+  factory/ResponseFactory.cpp
 )
 
 set(OBSERVER_SOURCES

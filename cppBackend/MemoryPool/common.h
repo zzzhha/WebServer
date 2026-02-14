@@ -5,7 +5,8 @@
 #include<array>
 
 constexpr size_t ALIGNMENT = 8;
-constexpr size_t MAXBYTE = 256 * 1024; //256KB
+constexpr size_t MAXBYTE = 256 * 1024; //256KB - 小型内存上限
+constexpr size_t LARGE_THRESHOLD = 4 * 1024 * 1024; //4MB - 大型内存阈值
 constexpr size_t FREE_LIST_SIZE = MAXBYTE / ALIGNMENT;
 
 

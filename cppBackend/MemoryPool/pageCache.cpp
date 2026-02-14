@@ -114,3 +114,29 @@ void* pageCache::systemAlloc(size_t numPages){
   memset(ptr, 0, size);
   return ptr;
 }
+
+void* pageCache::allocateLarge(size_t size){
+  std::lock_guard<std::mutex> lock(largeMutex_);
+
+  void* ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (ptr == MAP_FAILED) return nullptr;
+
+  memset(ptr, 0, size);
+
+  // 记录大型内存信息用于释放
+  largeSpanMap_[ptr] = size;
+  return ptr;
+}
+
+void pageCache::deallocateLarge(void* ptr, size_t size){
+  std::lock_guard<std::mutex> lock(largeMutex_);
+
+  auto it = largeSpanMap_.find(ptr);
+  if (it != largeSpanMap_.end()) {
+    size_t recordedSize = it->second;
+    largeSpanMap_.erase(it);
+    munmap(ptr, recordedSize);
+  } else {
+    munmap(ptr, size);
+  }
+}

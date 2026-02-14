@@ -262,12 +262,12 @@
             const result = await response.json();
             
             if (response.ok && result.success) {
-                showMessage(successMessage, '注册成功！即将跳转到主页...');
+                showMessage(successMessage, result.message || '注册成功！即将跳转到登录页...');
                 setTimeout(() => {
                     window.location.href = 'login.html';
                 }, 2000);
             } else {
-                showMessage(errorMessage, result.message || '注册失败，请稍后重试');
+                showMessage(errorMessage, (result.error && result.error.message) || result.message || '注册失败，请稍后重试');
             }
         } catch (error) {
             console.error('注册请求失败:', error);

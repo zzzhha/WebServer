@@ -245,18 +245,18 @@
                 
                 if (response.ok && result.success) {
                     // 登录成功处理
-                    if (result.token) {
+                    if (result.data && result.data.token) {
                         // 保存JWT token到localStorage
-                        localStorage.setItem('jwt_token', result.token);
+                        localStorage.setItem('jwt_token', result.data.token);
                         localStorage.setItem('username', usernameInput.value.trim());
                     }
-                    showMessage(successMessage, '登录成功！即将跳转到首页...');
+                    showMessage(successMessage, result.message || '登录成功！即将跳转到首页...');
                     setTimeout(() => {
                         window.location.href = 'index.html';
                     }, 2000);
                 } else {
                     // 显示后端返回的错误信息
-                    showMessage(errorMessage, result.message || '登录失败，请稍后重试');
+                    showMessage(errorMessage, (result.error && result.error.message) || result.message || '登录失败，请稍后重试');
                 }
             } catch (error) {
                 console.error('登录请求失败:', error);

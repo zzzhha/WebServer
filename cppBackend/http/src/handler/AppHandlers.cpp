@@ -6,6 +6,7 @@
  * - 静态文件服务已迁移到StaticFileService
  */
 #include "handler/AppHandlers.h"
+#include "factory/ResponseFactory.h"
 #include "logger/log_fac.h"
 #include "core/HttpRequest.h"
 #include "core/HttpResponse.h"
@@ -80,17 +81,13 @@ std::unordered_map<std::string, std::string> ParseFormData(const std::string& bo
     return params;
 }
 
-// 生成 JSON 响应
+// 生成 JSON 响应（向后兼容）
 void SetJsonResponse(HttpResponse& response, bool success, const std::string& message, HttpStatusCode statusCode) {
-    response.SetStatusCode(statusCode);
-    response.SetHeader("Content-Type", "application/json; charset=utf-8");
-    
-    std::ostringstream json;
-    json << "{\"success\":" << (success ? "true" : "false") 
-         << ",\"message\":\"" << message << "\"}";
-    
-    response.SetBody(json.str());
-    response.SetHeader("Content-Length", std::to_string(response.GetBodyLength()));
+    if (success) {
+        SetJsonSuccessResponse(response, message);
+    } else {
+        SetJsonErrorResponse(response, statusCode, message);
+    }
 }
 
 // 获取 Content-Type 根据文件扩展名
@@ -123,6 +120,67 @@ std::string GetContentType(const std::string& path) {
 
     return "application/octet-stream";
 }
+
+// JSON成功响应
+void SetJsonSuccessResponse(HttpResponse& response, const std::string& message) {
+    auto resp = ResponseFactory::CreateSuccess(message);
+    response = *resp;
+}
+
+void SetJsonSuccessResponseWithData(HttpResponse& response, const std::string& data, const std::string& message) {
+    auto resp = ResponseFactory::CreateSuccessWithData(data, message);
+    response = *resp;
+}
+
+// JSON错误响应
+void SetJsonErrorResponse(HttpResponse& response, HttpStatusCode code, const std::string& message) {
+    auto resp = ResponseFactory::CreateError(code, message);
+    response = *resp;
+}
+
+void SetJsonErrorResponseWithDetails(HttpResponse& response, HttpStatusCode code, const std::string& message, const std::map<std::string, std::string>& details) {
+    auto resp = ResponseFactory::CreateErrorWithDetails(code, message, details);
+    response = *resp;
+}
+
+// 文件下载响应
+bool SetFileDownloadResponse(HttpResponse& response, const std::string& filepath, const std::string& filename) {
+    auto resp = ResponseFactory::CreateFileDownload(filepath, filename);
+    if (!resp || resp->getStatusCodeInt() >= 400) {
+        return false;
+    }
+    response = *resp;
+    return true;
+}
+
+// 静态文件响应
+bool SetStaticFileResponse(HttpResponse& response, const std::string& filepath, const std::string& contentType) {
+    auto resp = ResponseFactory::CreateStaticFile(filepath, contentType);
+    if (!resp || resp->getStatusCodeInt() >= 400) {
+        return false;
+    }
+    response = *resp;
+    return true;
+}
+
+// 重定向响应
+void SetRedirectResponse(HttpResponse& response, const std::string& url, bool permanent) {
+    auto resp = ResponseFactory::CreateRedirect(url, permanent);
+    response = *resp;
+}
+
+// HTML响应
+void SetHtmlResponse(HttpResponse& response, const std::string& html, HttpStatusCode statusCode) {
+    auto resp = ResponseFactory::CreateHtml(html, statusCode);
+    response = *resp;
+}
+
+// 文本响应
+void SetTextResponse(HttpResponse& response, const std::string& text, HttpStatusCode statusCode) {
+    auto resp = ResponseFactory::CreateText(text, statusCode);
+    response = *resp;
+}
+
 
 // 注意：业务处理逻辑已迁移到services层
 // - 注册/登录逻辑已迁移到AuthService（在HttpServer.cpp中使用）

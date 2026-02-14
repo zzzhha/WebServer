@@ -25,6 +25,10 @@ private:
   size_t getBatchNum(size_t size);
   //判断是否需要归还内存给中心缓存
   bool shouldReturnToCentralCache(size_t index);
+  void* allocateMedium(size_t size);
+  void deallocateMedium(void* ptr, size_t size);
+  void* allocateLarge(size_t size);
+  void deallocateLarge(void* ptr, size_t size);
 
   //每个线程的自由链表数组 FREE_LIST_SIZE= 256*1024/8
   //内存块链表的头指针数组

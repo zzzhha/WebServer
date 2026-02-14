@@ -18,6 +18,12 @@ public:
   //释放span
   void deallocateSpan(void* ptr,size_t numPages);
 
+  //分配大型内存（>LARGE_THRESHOLD）
+  void* allocateLarge(size_t size);
+
+  //释放大型内存
+  void deallocateLarge(void* ptr, size_t size);
+
 private:
   pageCache() =default;
 
@@ -35,5 +41,13 @@ private:
 
   //页号到span的映射，用于回收
   std::map<void*,Span*> spanMap_;
+
+  //大型内存映射（ptr -> numPages），用于大型内存释放
+  std::map<void*,size_t> largeSpanMap_;
+
+  //中型内存的mutex
   std::mutex mutex_;
+
+  //大型内存的独立mutex
+  std::mutex largeMutex_;
 };

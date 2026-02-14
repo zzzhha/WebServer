@@ -1,49 +1,57 @@
 #include"threadcache.h"
 #include"centralCache.h"
+#include"pageCache.h"
 
   //分配内存
 void* threadcache::allocate(size_t size){
-  //处理0
   if(size ==0){
-    size = ALIGNMENT; //  至少分配一个对齐大小
+    size = ALIGNMENT;
   }
-  if(size > MAXBYTE) {
-    return malloc(size);
-  }
-
-  size_t index =sizeclass::getIndex(size);
+  
+  if(size <= MAXBYTE) {
+    size_t index =sizeclass::getIndex(size);
 
   //检查线程本地自由链表
   //如果freeList_[index]不为空，表示该链表有可用的内存块
-  if(freeList_[index]){
-    void *ptr =freeList_[index];
+    if(freeList_[index]){
+      void *ptr =freeList_[index];
     //将freeList_[index]指向 内存块的下一块内存地址
     //这样做的原因是我们的内存块前8个字节是一个指针用于存储下一个块的地址
-    freeList_[index] = *reinterpret_cast<void **>(ptr); 
-    //更新自由链表大小
-    freeListSize_[index]--;
-    return ptr;
+      freeList_[index] = *reinterpret_cast<void **>(ptr); 
+      //更新自由链表大小
+      freeListSize_[index]--;
+      return ptr;
+    }
+    return fetchFromCentralCache(index);
   }
-  return fetchFromCentralCache(index);
+  else if(size <= LARGE_THRESHOLD) {
+    return allocateMedium(size);
+  }
+  else {
+    return allocateLarge(size);
+  }
 }
 //回收分配的内存
 void threadcache::deallocate(void* ptr,size_t size){
-  if(size > MAXBYTE){
-    free(ptr);
-    return;
-  }
+  if(size <= MAXBYTE){
+    size_t index =sizeclass::getIndex(size);
 
-  size_t index =sizeclass::getIndex(size);
-
-  //插入到线程本地自由链表
-  *reinterpret_cast<void**>(ptr) = freeList_[index];
-  freeList_[index] = ptr;
+   //插入到线程本地自由链表
+    *reinterpret_cast<void**>(ptr) = freeList_[index];
+    freeList_[index] = ptr;
 
   //更新自由链表大小
   freeListSize_[index]++;
 
-  if(shouldReturnToCentralCache(index)){
-    returnToCentralCache(freeList_[index],size);
+    if(shouldReturnToCentralCache(index)){
+      returnToCentralCache(freeList_[index],size);
+    }
+  }
+  else if(size <= LARGE_THRESHOLD) {
+    deallocateMedium(ptr, size);
+  }
+  else {
+    deallocateLarge(ptr, size);
   }
 }
 
@@ -142,4 +150,22 @@ bool threadcache::shouldReturnToCentralCache(size_t index){
   //设定阈值，当自由链表的大小超过一定数量时
   size_t shouldreturn = 64; //在这里设定如果超过64个内存块 就需要归还内存了
   return (freeListSize_[index]>shouldreturn);
+}
+
+void* threadcache::allocateMedium(size_t size){
+  size_t numPages = (size + pageCache::PAGE_SIZE - 1) / pageCache::PAGE_SIZE;
+  return pageCache::getInstance().allocateSpan(numPages);
+}
+
+void threadcache::deallocateMedium(void* ptr, size_t size){
+  size_t numPages = (size + pageCache::PAGE_SIZE - 1) / pageCache::PAGE_SIZE;
+  pageCache::getInstance().deallocateSpan(ptr, numPages);
+}
+
+void* threadcache::allocateLarge(size_t size){
+  return pageCache::getInstance().allocateLarge(size);
+}
+
+void threadcache::deallocateLarge(void* ptr, size_t size){
+  pageCache::getInstance().deallocateLarge(ptr, size);
 }

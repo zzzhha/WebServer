@@ -278,9 +278,9 @@ void HttpServer::SetupRoutes(Router& router) {
     
     // 生成JSON响应
     if (success) {
-      SetJsonResponse(response, true, "注册成功", HttpStatusCode::OK);
+      SetJsonSuccessResponse(response, "注册成功");
     } else {
-      SetJsonResponse(response, false, "注册失败，用户名可能已存在", HttpStatusCode::BAD_REQUEST);
+      SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "注册失败，用户名可能已存在");
     }
     
     return true;
@@ -308,13 +308,10 @@ void HttpServer::SetupRoutes(Router& router) {
       // 登录成功，获取token
       std::string token = login_result.value();
       // 在响应中包含token
-      response.SetHeader("Content-Type", "application/json");
-      response.SetStatusCode(HttpStatusCode::OK);
-      std::string json_response = "{\"success\":true,\"message\":\"登录成功\",\"token\":\"" + token + "\"}";
-      response.SetBody(json_response);
-      response.SetHeader("Content-Length", std::to_string(response.GetBodyLength()));
+      std::string data = "{\"token\":\"" + token + "\"}";
+      SetJsonSuccessResponseWithData(response, data, "登录成功");
     } else {
-      SetJsonResponse(response, false, "登录失败，用户名或密码错误", HttpStatusCode::UNAUTHORIZED);
+      SetJsonErrorResponse(response, HttpStatusCode::UNAUTHORIZED, "登录失败，用户名或密码错误");
     }
     
     return true;

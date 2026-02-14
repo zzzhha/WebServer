@@ -28,6 +28,24 @@ public:
   ResponseBuilder& ContentEncoding(HttpContentEncoding encoding);
   ResponseBuilder& Body(const std::string& body);
 
+  // JSON响应方法
+  ResponseBuilder& Json(bool success, const std::string& message);
+  ResponseBuilder& Json(bool success, const std::string& message, const std::string& data);
+  ResponseBuilder& Json(const std::string& jsonBody);
+
+  // 错误响应方法
+  ResponseBuilder& Error(HttpStatusCode code, const std::string& message);
+  ResponseBuilder& Error(int code, const std::string& message, const std::string& reason = "");
+
+  // 文件下载响应方法
+  ResponseBuilder& FileDownload(const std::string& filename, const std::string& filepath);
+
+  // 静态文件响应方法
+  ResponseBuilder& StaticFile(const std::string& filepath, const std::string& contentType);
+
+  // 重定向响应方法
+  ResponseBuilder& Redirect(const std::string& url, bool permanent = false);
+
   std::shared_ptr<HttpResponse> Build();
 
 private:
