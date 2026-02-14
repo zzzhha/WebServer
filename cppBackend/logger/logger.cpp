@@ -1,35 +1,37 @@
 #include "logger.h"
+#include <iostream>
 
-
-
-
-Logger::~Logger(){
-	if(worker_  && worker_->joinable()){
-		SetThreadStopWhile(true);
-		cond_.notify_all();
-		worker_->join();
+namespace {
+	void EmergencyOutput(const std::string& msg) {
+		std::cerr << "[LOG-EMERGENCY] " << msg << std::endl;
 	}
 }
 
-//write函数即为最终的输出函数
-//log_fac确定了
-//LogOutput* out_{ nullptr }; ->输出流
-//LogFormat* formater_{ nullptr };->格式化方式
-//Xlog log_level_ ->日志级别
-//通过宏 传入日志级别，文件内容，文件所在地，文件行数
-//        Xlog枚举类   s宏参数    __FILE__    __LINE__  
-// 没有输出流是因为配置文件确定的输出流，而不是write传入输出流
+Logger::~Logger(){
+	try {
+		if(worker_ && worker_->joinable()){
+			SetThreadStopWhile(true);
+			cond_.notify_all();
+			worker_->join();
+		}
+	} catch (const std::exception& e) {
+		EmergencyOutput(std::string("Exception in Logger destructor: ") + e.what());
+	} catch (...) {
+		EmergencyOutput("Unknown exception in Logger destructor");
+	}
+}
+
 void Logger::Write(Xlog level,
 	const std::string& log,
 	const std::string& file,
 	int line
 ) {
-	//如果传入参数的日志级别小于配置文件的日志级别
-	//那么我们不存储此信息
-	if (!formater_ || !out_)return;
+	if (!formater_ || !out_) {
+		EmergencyOutput("Logger not properly initialized: formater_ or out_ is null");
+		return;
+	}
 	if (level < log_level_) return;
 	
-	//将日志级别枚举类型转化为字符串
 	std::string levelstr = "debug";
 	switch (level) {
 	case Xlog::INFO:
@@ -48,14 +50,11 @@ void Logger::Write(Xlog level,
 		break;
 	}
 
-	//格式化日志，log_fac已经帮我们确定了formater_ 此指针的派生类指向
-	//日志级别，日志内容，文件所在地，行数
 	if(isasync_){
 		AddWorkLog(formater_->Format(levelstr, log, file, line));
 	}
 	else{
 		auto str=formater_->Format(levelstr, log, file, line);
-		//文件格式化后就可以输出了，log_fac通过配置文件处理已经确定过了文件输出在哪里
 		out_->Output(str);
 	}
 	
@@ -74,35 +73,74 @@ void Logger::SetThreadStopWhile(bool th_stop){
 }
 
 void Logger::Init_Thread(){
-	if (thread_initialized_){
-    return; 
-  }
+	if (thread_initialized_.exchange(true)){
+		return;
+	}
 	if(!worker_){
-		worker_ =std::make_unique<std::thread>([this]{
-			while(true){
-				std::string str;
-				{
-					std::unique_lock<std::mutex> lock(mutex_);
-					cond_.wait(lock,[this]{
-						return th_stop_ || !workqueue_.empty();
-					});
-					if(th_stop_ && workqueue_.empty()) return;
-				
-					str=workqueue_.front();
-					workqueue_.pop();
+		worker_ = std::make_unique<std::thread>([this]{
+			try {
+				std::vector<std::string> batch;
+				while(true){
+					batch.clear();
+					{
+						std::unique_lock<std::mutex> lock(mutex_);
+						cond_.wait(lock,[this]{
+							return th_stop_ || !workqueue_.empty();
+						});
+						
+						if(th_stop_ && workqueue_.empty()) return;
+						
+						// 批量取出
+						while(!workqueue_.empty() && batch.size() < batch_size_){
+							batch.push_back(std::move(workqueue_.front()));
+							workqueue_.pop();
+						}
+					}
+					
+					// 批量输出
+					if (out_) {
+						for (auto& str : batch) {
+							out_->Output(str);
+							++total_processed_;
+						}
+					} else {
+						EmergencyOutput("out_ is null in worker thread");
+					}
 				}
-				out_->Output(str);
+			} catch (const std::exception& e) {
+				EmergencyOutput(std::string("Exception in worker thread: ") + e.what());
+			} catch (...) {
+				EmergencyOutput("Unknown exception in worker thread");
 			}
 		});
-		thread_initialized_ = true;
+	} else {
+		thread_initialized_ = false;
 	}
 }
 
 void Logger::AddWorkLog(std::string&& log){
 	{
 		std::unique_lock<std::mutex> lock(mutex_);
+		const size_t MAX_QUEUE_SIZE = 10000;
+		if (workqueue_.size() >= MAX_QUEUE_SIZE) {
+			EmergencyOutput("Log queue full, dropping log");
+			return;
+		}
 		workqueue_.push(std::move(log));
 	}
 
 	cond_.notify_one();
+}
+
+size_t Logger::GetQueueSize() const {
+	std::unique_lock<std::mutex> lock(const_cast<std::mutex&>(mutex_));
+	return workqueue_.size();
+}
+
+size_t Logger::GetTotalProcessed() const {
+	return total_processed_.load();
+}
+
+bool Logger::IsWorkerThreadRunning() const {
+	return thread_initialized_.load() && !th_stop_.load();
 }

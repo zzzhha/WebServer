@@ -16,6 +16,16 @@ const std::string& XConfig::Get(const std::string& key) {
 	}
 	return c->second;
 }
+
+//查找函数，带默认值
+std::string XConfig::Get(const std::string& key, const std::string& default_value) {
+	auto c = conf_.find(key);
+	if (c == conf_.end()) {
+		return default_value;
+	}
+	return c->second;
+}
+
 //读取函数，读取配置文件，如果打开失败就返回false
 bool XConfig::Read(const std::string& file) {
 	ifstream ifs(file);

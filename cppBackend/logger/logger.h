@@ -8,6 +8,7 @@
 #include<atomic>
 #include<queue>
 #include<condition_variable>
+#include<vector>
 enum class Xlog {
 	DEBUG,
 	INFO,
@@ -48,6 +49,18 @@ public:
 	void SetThreadStopWhile(bool th_stop);
 	void Init_Thread();
 	void AddWorkLog(std::string&& log);
+	
+	/// 获取当前队列中的日志数量
+	size_t GetQueueSize() const;
+	
+	/// 获取处理的日志总数
+	size_t GetTotalProcessed() const;
+	
+	/// 检查工作线程是否正在运行
+	bool IsWorkerThreadRunning() const;
+	
+	/// 设置批量处理大小
+	void SetBatchSize(size_t size) { batch_size_ = size; }
 
 private:
 	//设置文件输出流
@@ -71,5 +84,9 @@ private:
 	std::queue<std::string>workqueue_;
 	//条件变量，用于通知子进程有任务到达
 	std::condition_variable cond_;
+	//批量处理大小
+	size_t batch_size_{100};
+	//处理的日志总数
+	std::atomic<size_t> total_processed_{0};
 };
 

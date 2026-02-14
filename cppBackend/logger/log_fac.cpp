@@ -23,33 +23,35 @@ using namespace std;
 //第三个参数 确定日志级别
 //第四个参数 确定格式化方式
 void LogFac::Init(bool isasync,const std::string& con_file){
-	logger_.SetAsyncMode(isasync);
-	if(isasync) {
-		logger_.SetThreadStopWhile(false);
-		logger_.Init_Thread();
-	}
-	else{
-		logger_.SetThreadStopWhile(true);
-	}
-	logger_.SetFormat(make_unique<XLogFormat>());
 	//读取配置文件，配置文件决定上述四个数据
 	XConfig conf;
 	//这里是配置文件的处理，读取配置文件并将配置文件存储于map数据结构中
 	//map<string key,string value> key值为上述四个数据 value值为配置文件中的数据
 	bool re = conf.Read(con_file);
+	
 	//初始化定义文件类别
 	string log_type = "console";
 	string log_file = "log.txt";
 	string log_level = "debug";
 	string log_user_format = "";
+	string isasync_str = isasync ? "true" : "false";
+	string flush_interval_str = "10";
+	string max_file_size_str = "10485760";
+	string max_backup_index_str = "5";
+	
 	//如果Read函数成功读取到了配置文件的数据
 	if (re) {
 		//将这四个数据获取到临时变量中
-		log_type = conf.Get("log_type");
-		log_file = conf.Get("log_file");
-		log_level = conf.Get("log_level");
-		log_user_format = conf.Get("log_user_format");
-	}
+		log_type = conf.Get("log_type", "console");
+		log_file = conf.Get("log_file", "log.txt");
+		log_level = conf.Get("log_level", "debug");
+		log_user_format = conf.Get("log_user_format", "");
+		isasync_str = conf.Get("isasync", isasync ? "true" : "false");
+		flush_interval_str = conf.Get("flush_interval_str", "10");
+		max_file_size_str = conf.Get("max_file_size_str", "10485760");
+		max_backup_index_str = conf.Get("max_backup_index_str", "5");
+	} 
+	
 	//判断输出格式，并将其存储到logger对应格式中
 	//如果配置文件没有确定格式化输出
 	//那么我们就使用默认的格式化xlog_format
@@ -75,6 +77,25 @@ void LogFac::Init(bool isasync,const std::string& con_file){
 	else if (log_level == "fatal") {
 		logger_.SetLevel(Xlog::FATAL);
 	}
+	else if (log_level == "debug") {
+		logger_.SetLevel(Xlog::DEBUG);
+	}
+	else {
+		cerr << "[LOG-WARN] Unknown log level: " << log_level << ", using DEBUG" << endl;
+		logger_.SetLevel(Xlog::DEBUG);
+	}
+	
+	//设置异步模式，先初始化输出，再启动线程
+	bool use_async = (isasync_str == "true");
+	if (use_async) {
+		logger_.SetAsyncMode(true);
+		logger_.SetThreadStopWhile(false);
+		logger_.Init_Thread();
+	} else {
+		logger_.SetAsyncMode(false);
+		logger_.SetThreadStopWhile(true);
+	}
+	
 	//特殊判断输出流为文件的时候
 	if (log_type.find("file")!=string::npos) {
 		//如果未指定输出文件，则输出到默认文件中，即输出到"log.txt"中
@@ -83,12 +104,26 @@ void LogFac::Init(bool isasync,const std::string& con_file){
 		}
 		//因为输出流是文件，所以我们需要文件输出流
 		auto fout = make_unique< LogFileOutput>();//new LogFileOutput();
+		
+		// 解析配置参数
+		try {
+			size_t flush_interval = stoul(flush_interval_str);
+			size_t max_file_size = stoul(max_file_size_str);
+			size_t max_backup_index = stoul(max_backup_index_str);
+			
+			fout->SetFlushInterval(flush_interval);
+			fout->SetMaxFileSize(max_file_size);
+			fout->SetMaxFiles(max_backup_index + 1);
+		} catch (...) {
+			// 解析失败使用默认值
+		}
+		
 		//如果文件打开失败，就报错
 		//此处应该还会有其他操作，例如直接返回，但是我们此处不做任何操作，只是报错
 		//此处能结束为什么文件输出需要这样写而不是跟控制台输出一样logger_.SetOutput(new LogFileOutput);
 		//因为我们要判断是否成功打开文件
 		if (!fout->Open(log_file)) {
-			cerr << "open file failed " << log_file << endl;
+			cerr << "[LOG-ERROR] open file failed " << log_file << endl;
 			logger_.SetOutput(make_unique<LogConsoleOutput>());
 		}
 		//设置logger的输出流为 log_file文件

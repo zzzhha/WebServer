@@ -16,6 +16,7 @@ class XConfig
 public:
 	bool Read(const std::string& file);
 	const std::string& Get(const std::string& key);
+	std::string Get(const std::string& key, const std::string& default_value);
 private:
 	std::map<std::string, std::string>conf_;
 };

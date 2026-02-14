@@ -7,6 +7,9 @@
 
 class LogOutput {
 public:
+	LogOutput() = default;
+	virtual ~LogOutput() = default;
+	
 	/// 
 	/// 日志输出
 	/// log 格式化后的输出内容
