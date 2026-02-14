@@ -47,6 +47,7 @@ public:
   int fd() const;             //返回fd_成员
   std::string ip()const;      //返回ip_成员
   uint16_t port() const;      //返回port_成员
+  EventLoop* getLoop() const; //返回loop_成员
 
   void onmessage();           //处理对端发送过来的消息
   void closecallback();       //tcp连接断开的回调函数,供channel回调

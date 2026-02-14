@@ -26,6 +26,9 @@ std::string Connection::ip()const{
 uint16_t Connection::port() const{
   return clientsock_->port();
 }
+EventLoop* Connection::getLoop() const{
+  return loop_;
+}
 
 void Connection::closecallback(){
 LOGINFO("正常关闭Connection");

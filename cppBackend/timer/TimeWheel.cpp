@@ -79,8 +79,10 @@ void TimeWheel::tick(){
   }
   for(auto &weak_conn:weak_conns){
     if(auto conn=weak_conn.lock()){
-LOGDEBUG("超时调用正常关闭");
-      conn->closecallback();
+LOGDEBUG("超时，将关闭操作提交到从事件循环");
+      conn->getLoop()->queueinloop([conn](){
+        conn->closecallback();
+      });
     }
   }
 }
