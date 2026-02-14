@@ -77,37 +77,3 @@ size_t ThreadPool::queue_size(){
   std::lock_guard<std::mutex> lock(mutex_);
   return taskqueue_.size();
 }
-
-// 模板方法实现，支持返回值的任务
-template<typename F, typename... Args>
-auto ThreadPool::add_task(F&& f, Args&&... args) -> std::future<typename std::result_of<F(Args...)>::type> {
-  using return_type = typename std::result_of<F(Args...)>::type;
-
-  auto task = std::make_shared<std::packaged_task<return_type()>>(
-      std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-  );
-
-  std::future<return_type> res = task->get_future();
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    // 检查线程池是否已经停止
-    if (stop_) {
-      throw std::runtime_error("add_task on stopped ThreadPool");
-    }
-
-    // 检查任务队列是否已满
-    if (taskqueue_.size() >= max_queue_size_) {
-      throw std::runtime_error("Task queue is full");
-    }
-
-    taskqueue_.emplace([task]() {
-      (*task)();
-    });
-  }
-  condition_.notify_one();
-  return res;
-}
-
-// 显式实例化，避免链接错误
-template auto ThreadPool::add_task<>(std::function<void()> &&, void &&...) -> std::future<void>;

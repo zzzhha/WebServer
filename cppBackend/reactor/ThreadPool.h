@@ -24,9 +24,6 @@ private:
   size_t max_queue_size_;                           //任务队列最大容量
 public:
   ThreadPool(size_t threadnum, const std::string& threadtype, size_t max_queue_size = 10000);
-
-  template<typename F, typename... Args>
-  auto add_task(F&& f, Args&&... args) -> std::future<typename std::result_of<F(Args...)>::type>;
   
   void addtask(std::function<void()> task);
   int idl_thread_cnt();
