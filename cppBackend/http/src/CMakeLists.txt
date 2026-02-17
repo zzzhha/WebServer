@@ -80,6 +80,4 @@ target_include_directories(http PUBLIC
 # 链接 OpenSSL 库到静态库
 target_link_libraries(http PUBLIC OpenSSL::SSL OpenSSL::Crypto)
 
-# 演示主程序
-# add_executable(http_demo main.cpp)
-# target_link_libraries(http_demo PRIVATE http_new)
+

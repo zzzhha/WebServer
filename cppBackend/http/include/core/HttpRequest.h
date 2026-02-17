@@ -97,6 +97,9 @@ private:
   std::string buildQueryStr() const;
   std::string UrlEncode(const std::string& str) const;
   std::string UrlDecode(const std::string& str) const;
+  bool UrlDecodeStrict(std::string_view str, std::string& out) const;
+  bool NormalizePath(std::string& path) const;
+  static bool IsValidUtf8(std::string_view s);
   std::string toHex(char c) const;
   uint8_t HexToByte(char hex) const;
   void rebuildHeaderIndex();

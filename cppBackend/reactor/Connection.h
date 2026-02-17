@@ -1,6 +1,7 @@
 #pragma once
 #include<functional>
 #include<atomic>
+#include<any>
 #include<sys/syscall.h>
 #include<sys/sendfile.h>
 #include"Socket.h"
@@ -9,6 +10,7 @@
 #include"Eventloop.h"
 #include"Buffer.h"
 #include<memory>
+#include<utility>
 //#include"Timestamp.h"
 
 class Connection;
@@ -34,6 +36,8 @@ private:
 
   BufferBlock inputbuffer_;       //接收缓冲区
   BufferBlock outputbuffer_;      //发送缓冲区
+
+  std::any context_;
 
   //定时器
   int tc_fd;
@@ -76,6 +80,12 @@ public:
   // 设置发送完成后是否关闭连接
   void setCloseOnSendComplete(bool close) { close_on_send_complete_ = close; }
   bool getCloseOnSendComplete() const { return close_on_send_complete_; }
+
+  template <class T>
+  void SetContext(T&& ctx) { context_ = std::forward<T>(ctx); }
+
+  template <class T>
+  T* GetContext() { return std::any_cast<T>(&context_); }
 
   //时间戳
   ///bool timeout(time_t now,int val); //判断tcp连接是否超时

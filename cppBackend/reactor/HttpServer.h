@@ -29,7 +29,7 @@ private:
   TcpServer tcpserver_;                   // TCP服务器实例
   ThreadPool threadpool_;                 // 工作线程池
   std::string static_path_;               // 静态资源路径
-  std::shared_ptr<HttpFacade> http_facade_; // HTTP处理门面
+  std::shared_ptr<Router> router_;
   
 public:
   /**

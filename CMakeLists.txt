@@ -17,6 +17,7 @@ add_custom_target(copy_frontend ALL
 
 # 添加后端子目录
 add_subdirectory(cppBackend)
+add_subdirectory(test)
 
 # 打印信息
 message(STATUS "Frontend directory: ${FRONTEND_DIR}")

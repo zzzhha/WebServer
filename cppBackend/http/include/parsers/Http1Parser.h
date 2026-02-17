@@ -46,4 +46,7 @@ private:
   bool isChunked_ = false;    //Transfer-Encoding:chuned
   size_t totalConsumed_ = 0;  //总消费字节数
   size_t headerCount_ = 0;    //已解析 header数
+  size_t headerBytes_ = 0;
+  size_t bodyTotalReceived_ = 0;
+  size_t maxTotalHeaderBytes_ = 16 * 1024;
 };

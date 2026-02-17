@@ -137,9 +137,21 @@ HttpServerResult HttpFacade::ProcessParsing(std::string data,
         NotifyHttpParse("HTTP解析需要更多数据", "等待更多数据完成解析");
         return HttpServerResult::NEED_MORE_DATA;
     }
+    if (parse_result == static_cast<int>(ParseResult::UNSUPPORTEDVERSION)) {
+        NotifyHttpParse("HTTP版本不支持", "解析到不支持的HTTP版本");
+        parser_->Reset();
+        return HttpServerResult::HTTP_VERSION_NOT_SUPPORTED;
+    }
+    if (parse_result == static_cast<int>(ParseResult::HEADERTOOLONG) ||
+        parse_result == static_cast<int>(ParseResult::BODYTOOLONG)) {
+        NotifyHttpParse("HTTP报文过大", "Header或Body超过限制");
+        parser_->Reset();
+        return HttpServerResult::PAYLOAD_TOO_LARGE;
+    }
     if (parse_result != static_cast<int>(ParseResult::SUCCESS) || !message) {
         std::string error_detail = "解析返回码: " + std::to_string(parse_result);
         NotifyHttpParse("HTTP解析失败", error_detail);
+        parser_->Reset();
         return HttpServerResult::PARSE_FAILED;
     }
 
@@ -161,6 +173,13 @@ HttpServerResult HttpFacade::ProcessParsing(std::string data,
 HttpServerResult HttpFacade::ProcessValidation(IHttpMessage& message, HttpResponse& response) {
     NotifyValidation("开始责任链验证", "执行中间件和基础校验");
     
+    if (auto* request = dynamic_cast<HttpRequest*>(&message)) {
+        if (request->GetMethod() == HttpMethod::UNKNOWN) {
+            NotifyValidation("责任链验证失败", "未知HTTP方法");
+            return HttpServerResult::NOT_IMPLEMENTED;
+        }
+    }
+
     if (!handler_chain_->Handle(message)) {
         NotifyValidation("责任链验证失败", "某个中间件或验证器拒绝了请求");
         return HttpServerResult::VALIDATION_FAILED;

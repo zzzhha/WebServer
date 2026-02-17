@@ -29,15 +29,8 @@ HttpServer::HttpServer(const std::string &ip,uint16_t port,int timeoutS,bool Opt
   //tcpserver_.settimeout(std::bind(&HttpServer::HandleTimeOut, this, std::placeholders::_1));
   SqlConnPool::Instance()->Init("localhost", sqlPort, sqlUser, sqlPwd, dbName, connpoolnum);
   
-  // 初始化HttpFacade
-  http_facade_ = std::make_shared<HttpFacade>();
-  
-  // 初始化路由器并通过HttpFacade设置
-  auto router = std::make_shared<Router>();
-  http_facade_->SetRouter(router);
-  
-  // 注册路由
-  SetupRoutes(*router);
+  router_ = std::make_shared<Router>();
+  SetupRoutes(*router_);
 }
 HttpServer::~HttpServer(){
 
@@ -57,6 +50,13 @@ void HttpServer::Stop(){
 }
 void HttpServer::HandleNewConnection(spConnection conn){
   LOGINFO("new connection(fd="+std::to_string(conn->fd())+",ip="+conn->ip()+",port="+std::to_string(conn->port())+ ")ok.");
+  if (conn) {
+    auto facade = std::make_shared<HttpFacade>();
+    if (router_) {
+      facade->SetRouter(router_);
+    }
+    conn->SetContext(std::move(facade));
+  }
 }
 void HttpServer::HandleClose(spConnection conn){
   LOGINFO("connection close(fd="+std::to_string(conn->fd())+",ip="+conn->ip()+",port="+std::to_string(conn->port())+ ")");
@@ -94,10 +94,15 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
   // 将缓冲区数据转换为字符串供解析器使用
   std::string request_data(peek_ptr, readable_bytes);
   
-  // 检查http_facade_是否初始化
-  if (!http_facade_) {
-    LOGERROR("HttpFacade未初始化，无法处理HTTP请求");
-    return;
+  std::shared_ptr<HttpFacade> facade;
+  if (auto* ctx = conn->GetContext<std::shared_ptr<HttpFacade>>(); ctx && *ctx) {
+    facade = *ctx;
+  } else {
+    facade = std::make_shared<HttpFacade>();
+    if (router_) {
+      facade->SetRouter(router_);
+    }
+    conn->SetContext(facade);
   }
   
   // 创建响应对象
@@ -105,11 +110,11 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
   
   // 使用HttpFacade处理HTTP请求
   std::unique_ptr<IHttpMessage> message;
-  HttpServerResult result = http_facade_->Process(request_data, message, response);
+  HttpServerResult result = facade->Process(request_data, message, response);
   
   if (result == HttpServerResult::SUCCESS && message) {
     // 解析成功，消费已解析的字节数
-    size_t consumed_bytes = http_facade_->GetConsumedBytes();
+    size_t consumed_bytes = facade->GetConsumedBytes();
     inputbuffer.consumeBytes(consumed_bytes);
     
     // 确保这是一个请求消息
@@ -196,6 +201,18 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
       case HttpServerResult::PARSE_FAILED:
         error_response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
         error_response.SetBody("Bad Request");
+        break;
+      case HttpServerResult::HTTP_VERSION_NOT_SUPPORTED:
+        error_response.SetStatusCode(HttpStatusCode::HTTP_VERSION_NOT_SUPPORTED);
+        error_response.SetBody("HTTP Version Not Supported");
+        break;
+      case HttpServerResult::NOT_IMPLEMENTED:
+        error_response.SetStatusCode(HttpStatusCode::NOT_IMPLEMENTED);
+        error_response.SetBody("Not Implemented");
+        break;
+      case HttpServerResult::PAYLOAD_TOO_LARGE:
+        error_response.SetStatusCode(HttpStatusCode::PAYLOAD_TOO_LARGE);
+        error_response.SetBody("Payload Too Large");
         break;
       case HttpServerResult::VALIDATION_FAILED:
         error_response.SetStatusCode(HttpStatusCode::BAD_REQUEST);

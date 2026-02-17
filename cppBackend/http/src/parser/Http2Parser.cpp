@@ -23,7 +23,7 @@ void Http2Parser::Reset() {
   nextStreamId_ = 1; */
 }
 size_t Http2Parser::GetConsumeBytes() const {
-
+  return 0;
 }
 /* size_t Http2Parser::GetActiveStreamCount() const {
   return activeStreams_.size(); 

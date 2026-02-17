@@ -23,7 +23,7 @@ public:
   // 构造函数：可配置各项限制参数
   SecurityValidationHandler(
     size_t max_body_size = 10 * 1024 * 1024,        // 默认10MB
-    size_t max_url_length = 2048,                    // 默认2KB
+    size_t max_url_length = 8192,                    // 默认8KB
     size_t max_header_count = 50,                    // 默认50个Header
     size_t max_header_value_length = 8192             // 默认8KB
   );
@@ -57,4 +57,3 @@ private:
   size_t maxHeaderValueLength_;
   std::vector<HttpMethod> allowedMethods_;
 };
-

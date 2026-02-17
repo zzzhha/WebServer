@@ -339,7 +339,24 @@ void HttpRequest::ParseUrl() {
   if(path.empty()) {
     path = "/";
   }
-  path_ = path;
+  std::string decoded_path;
+  if (!UrlDecodeStrict(path, decoded_path)) {
+    path_.clear();
+    queryParams_.clear();
+    return;
+  }
+  if (decoded_path.empty()) decoded_path = "/";
+  if (!IsValidUtf8(decoded_path)) {
+    path_.clear();
+    queryParams_.clear();
+    return;
+  }
+  if (!NormalizePath(decoded_path)) {
+    path_.clear();
+    queryParams_.clear();
+    return;
+  }
+  path_ = decoded_path;
 
   queryParams_.clear();
   if(!query.empty()) {
@@ -448,6 +465,117 @@ std::string HttpRequest::UrlDecode(const std::string& str) const {
       }
   }
   return result;
+}
+
+bool HttpRequest::UrlDecodeStrict(std::string_view str, std::string& out) const {
+  out.clear();
+  out.reserve(str.size());
+  auto hexValue = [](char c) -> int {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+    if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+    return -1;
+  };
+
+  for (size_t i = 0; i < str.size();) {
+    char c = str[i];
+    if (c == '+') {
+      out.push_back(' ');
+      ++i;
+      continue;
+    }
+    if (c == '%') {
+      if (i + 2 >= str.size()) return false;
+      int hi = hexValue(str[i + 1]);
+      int lo = hexValue(str[i + 2]);
+      if (hi < 0 || lo < 0) return false;
+      out.push_back(static_cast<char>((hi << 4) | lo));
+      i += 3;
+      continue;
+    }
+    out.push_back(c);
+    ++i;
+  }
+  return true;
+}
+
+bool HttpRequest::IsValidUtf8(std::string_view s) {
+  size_t i = 0;
+  while (i < s.size()) {
+    unsigned char c = static_cast<unsigned char>(s[i]);
+    if (c <= 0x7F) {
+      ++i;
+      continue;
+    }
+
+    size_t need = 0;
+    uint32_t codepoint = 0;
+    if ((c & 0xE0) == 0xC0) {
+      need = 1;
+      codepoint = c & 0x1F;
+      if (codepoint == 0) return false;
+    } else if ((c & 0xF0) == 0xE0) {
+      need = 2;
+      codepoint = c & 0x0F;
+    } else if ((c & 0xF8) == 0xF0) {
+      need = 3;
+      codepoint = c & 0x07;
+      if (codepoint > 0x04) return false;
+    } else {
+      return false;
+    }
+
+    if (i + need >= s.size()) return false;
+    for (size_t j = 0; j < need; ++j) {
+      unsigned char cc = static_cast<unsigned char>(s[i + 1 + j]);
+      if ((cc & 0xC0) != 0x80) return false;
+      codepoint = (codepoint << 6) | (cc & 0x3F);
+    }
+
+    if (codepoint > 0x10FFFF) return false;
+    if (codepoint >= 0xD800 && codepoint <= 0xDFFF) return false;
+    if (need == 1 && codepoint < 0x80) return false;
+    if (need == 2 && codepoint < 0x800) return false;
+    if (need == 3 && codepoint < 0x10000) return false;
+
+    i += 1 + need;
+  }
+  return true;
+}
+
+bool HttpRequest::NormalizePath(std::string& path) const {
+  if (path.empty() || path[0] != '/') return false;
+  if (path.find('\0') != std::string::npos) return false;
+
+  std::vector<std::string_view> segs;
+  std::string_view v(path);
+  size_t i = 0;
+  while (i < v.size()) {
+    while (i < v.size() && v[i] == '/') ++i;
+    size_t j = i;
+    while (j < v.size() && v[j] != '/') ++j;
+    std::string_view seg = v.substr(i, j - i);
+    if (!seg.empty()) {
+      if (seg == ".") {
+      } else if (seg == "..") {
+        if (segs.empty()) return false;
+        segs.pop_back();
+      } else {
+        segs.push_back(seg);
+      }
+    }
+    i = j;
+  }
+
+  std::string normalized;
+  normalized.reserve(path.size());
+  normalized.push_back('/');
+  for (size_t k = 0; k < segs.size(); ++k) {
+    normalized.append(segs[k].data(), segs[k].size());
+    if (k + 1 < segs.size()) normalized.push_back('/');
+  }
+  path.swap(normalized);
+  return true;
 }
 
 std::string HttpRequest::toHex(char c) const {

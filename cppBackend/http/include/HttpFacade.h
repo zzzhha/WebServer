@@ -24,6 +24,9 @@ enum class HttpServerResult {
     VALIDATION_FAILED = 4,
     ROUTING_FAILED = 5,
     NEED_MORE_DATA = 6,
+    HTTP_VERSION_NOT_SUPPORTED = 7,
+    NOT_IMPLEMENTED = 8,
+    PAYLOAD_TOO_LARGE = 9,
     UNKNOWN_ERROR = -1
 };
 

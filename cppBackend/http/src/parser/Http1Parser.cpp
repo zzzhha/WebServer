@@ -22,7 +22,11 @@ bool iequals(std::string_view a, std::string_view b) {
 }
 } // namespace
 
-Http1Parser::Http1Parser() = default;
+Http1Parser::Http1Parser() {
+  maxHeaderLineSize_ = 16 * 1024;
+  maxHeaderCount_ = 100;
+  maxBodySize_ = 10 * 1024 * 1024;
+}
 
 int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
   // 主入口：基于状态机按行/按块消费数据，可能返回 NEEDMOREDATA 让调用方补充更多字节
@@ -76,7 +80,13 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
             auto cl = currentMessage_->GetHeader("Content-Length");
             if (cl) {
               contentLength_ = std::stoull(*cl);
+              if (maxBodySize_ > 0 && contentLength_ > maxBodySize_) {
+                data.erase(0, consumed);
+                totalConsumed_ += consumed;
+                return static_cast<int>(ParseResult::BODYTOOLONG);
+              }
               bodyReceived_ = 0;
+              bodyTotalReceived_ = 0;
               if (contentLength_ > 0) {
                 state_ = ParseState::kBodyContentLength;
                 res = ParseResult::NEEDMOREDATA;
@@ -85,6 +95,13 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
             }
             res = FinalizeMessage(out);
             break;
+          }
+
+          headerBytes_ += line.size() + 2;
+          if (headerBytes_ > maxTotalHeaderBytes_) {
+            data.erase(0, consumed);
+            totalConsumed_ += consumed;
+            return static_cast<int>(ParseResult::HEADERTOOLONG);
           }
 
           if (line.size() > maxHeaderLineSize_) {
@@ -131,9 +148,15 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
         size_t need = contentLength_ - bodyReceived_;
         size_t take = std::min(remaining, need);
         if (take > 0) {
+          if (maxBodySize_ > 0 && bodyTotalReceived_ + take > maxBodySize_) {
+            data.erase(0, consumed);
+            totalConsumed_ += consumed;
+            return static_cast<int>(ParseResult::BODYTOOLONG);
+          }
           currentMessage_->AppendBodyChunk(data.data() + consumed, take);
           consumed += take;
           bodyReceived_ += take;
+          bodyTotalReceived_ += take;
         }
         if (bodyReceived_ >= contentLength_) {
           res = FinalizeMessage(out);
@@ -152,8 +175,14 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
           consumed = data.size();
           break;
         }
+        if (maxBodySize_ > 0 && bodyTotalReceived_ + chunkSize_ > maxBodySize_) {
+          data.erase(0, consumed);
+          totalConsumed_ += consumed;
+          return static_cast<int>(ParseResult::BODYTOOLONG);
+        }
         currentMessage_->AppendBodyChunk(data.data() + consumed, chunkSize_);
         consumed += chunkSize_;
+        bodyTotalReceived_ += chunkSize_;
         // 跳过 chunk 末尾的 \r\n
         if (!(data[consumed] == '\r' && data[consumed + 1] == '\n')) {
           data.erase(0, consumed);
@@ -221,9 +250,11 @@ void Http1Parser::Reset() {
   contentLength_ = 0;
   chunkSize_ = 0;
   bodyReceived_ = 0;
+  bodyTotalReceived_ = 0;
   isChunked_ = false;
   totalConsumed_ = 0;
   headerCount_ = 0;
+  headerBytes_ = 0;
 }
 
 Http1Parser::~Http1Parser() = default;
