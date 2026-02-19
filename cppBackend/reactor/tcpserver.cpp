@@ -66,6 +66,11 @@ LOGDEBUG("tcp:设置定时器");
 LOGDEBUG("tcp:存放入map容器");
     conns_[fd]=conn; //把conn存放到map容器中
   }
+
+  subloops_[loop_index]->queueinloop([conn]{
+    conn->connectEstablished();
+  });
+
   //时间戳
   //subloops_[conn->fd()%threadnum_]->newconnection(conn);      //把conn存放到EventLoop的map容器中
 LOGDEBUG("tcp初始化新客户端数据完毕,准备回调http服务器的HandleNewConnection");
@@ -181,4 +186,3 @@ void TcpServer::update_conn_timeout_time(spConnection conn) {
     // 更新时间轮中的定时器
     time_wheel_.update_connection(conn);
 }
-

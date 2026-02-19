@@ -65,6 +65,8 @@ public:
   void setonmessagecallback(std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock&*/)> fn);
   void setsendcompletecallback(std::function<void(spConnection)> fn);
   
+  void connectEstablished();
+
   //不管在任何线程中,都是调用此函数发送数据
   void send();
   //发送数据，如果当前线程是IO线程，则直接调用此函数，如果是工作线程则把此函数传给IO线程

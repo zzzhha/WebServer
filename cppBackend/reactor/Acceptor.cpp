@@ -1,6 +1,8 @@
 #include"Acceptor.h"
 #include"Connection.h" 
 #include"../logger/log_fac.h"
+#include <errno.h>
+#include <string.h>
 Acceptor::Acceptor(EventLoop* loop,const std::string &ip,uint16_t port,bool OptLinger)
 :loop_(loop),servsock_(createnonblocking()),acceptchannel_(loop_,servsock_.fd()){
   
@@ -24,12 +26,22 @@ Acceptor::~Acceptor(){
 }
 
 void Acceptor::newconnection(){
-  InetAddress clientaddr;
+  while (true) {
+    InetAddress clientaddr;
+    int connfd = servsock_.accept(clientaddr);
+    if (connfd < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        return;
+      }
+      LOGERROR("accept4 failed, error: " + std::string(strerror(errno)));
+      return;
+    }
 
-  std::unique_ptr<Socket> clientsock(new Socket(servsock_.accept(clientaddr)));
-  clientsock->setipport(clientaddr.ip(),clientaddr.port());
-LOGDEBUG("Acceptor尝试连接新客户端");
-  newconnectioncb_(std::move(clientsock));    //回调TcpServer::newconnection()
+    std::unique_ptr<Socket> clientsock(new Socket(connfd));
+    clientsock->setipport(clientaddr.ip(),clientaddr.port());
+    LOGDEBUG("Acceptor尝试连接新客户端");
+    newconnectioncb_(std::move(clientsock));    //回调TcpServer::newconnection()
+  }
 }  
 
 void Acceptor::setnewconnecioncb(std::function<void(std::unique_ptr<Socket>)> fn){

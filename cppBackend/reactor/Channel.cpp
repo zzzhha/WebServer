@@ -69,22 +69,24 @@ void Channel::setwritecallback(std::function<void()> fn){
 
 
 void Channel::handleevent(){
-  if(revents_& EPOLLRDHUP){ //对方已关闭
-    
-    closecallback_();
+  if (revents_ & (EPOLLERR | EPOLLHUP)) {
+    errorcallback_();
+    return;
   }
-  else if(revents_ &(EPOLLIN/*普通数据*/ | EPOLLPRI/*带外数据（一般不使用）*/)){//接收缓冲区有数据可读
-LOGDEBUG("发生读事件");
+
+  if (revents_ & (EPOLLIN | EPOLLPRI)) {
+    LOGDEBUG("发生读事件");
     readcallback_();
   }
-  else if(revents_ & EPOLLOUT) {
-LOGDEBUG("发生写事件");
-    writecallback_();
-  } //有数据可写
-  else{ //其他事件，视为错误
-    errorcallback_();
-  } 
-}
 
+  if (revents_ & EPOLLOUT) {
+    LOGDEBUG("发生写事件");
+    writecallback_();
+  }
+
+  if (revents_ & EPOLLRDHUP) {
+    closecallback_();
+  }
+}
 
 

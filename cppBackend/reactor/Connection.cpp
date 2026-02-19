@@ -1,4 +1,6 @@
 #include"Connection.h"
+#include <errno.h>
+#include <string.h>
 
 
 Connection::Connection(EventLoop* loop,std::unique_ptr<Socket>clientsock)
@@ -8,9 +10,6 @@ Connection::Connection(EventLoop* loop,std::unique_ptr<Socket>clientsock)
   clientchannel_->setclosecallback(std::bind(&Connection::closecallback,this));
   clientchannel_->seterrorcallback(std::bind(&Connection::errorcallback,this));
   clientchannel_->setwritecallback(std::bind(&Connection::writecallback,this));
-  
-  clientchannel_->useet(); //设置边缘触发  
-  clientchannel_->enablereading();//检测读事件
 }
 Connection::~Connection(){
 LOGDEBUG("Connection析构函数调用");
@@ -72,6 +71,11 @@ LOGDEBUG("调用Connection sendinloop函数");
 
 LOGDEBUG("唤起写事件");
   clientchannel_->enablewriting();
+}
+
+void Connection::connectEstablished(){
+  clientchannel_->useet();
+  clientchannel_->enablereading();
 }
 void Connection::writecallback(){
   
@@ -153,6 +157,10 @@ void Connection::onmessage(){
     }else if(nread==0){
 LOGDEBUG("对方断开调用关闭");
       closecallback();  //回调TcpServer::closecallback()
+      break;
+    }else{
+      LOGERROR("read failed, fd: "+std::to_string(fd())+" error: "+strerror(errno));
+      errorcallback();
       break;
     }
   } 

@@ -77,7 +77,9 @@ int Socket::accept(InetAddress& clientaddr){
   socklen_t len=sizeof(peeraddr);
 
   int connfd = accept4(fd_,(struct sockaddr*)&peeraddr,&len,SOCK_NONBLOCK);
-  clientaddr.setaddr(peeraddr);
+  if (connfd >= 0) {
+    clientaddr.setaddr(peeraddr);
+  }
 
   return connfd;
 }

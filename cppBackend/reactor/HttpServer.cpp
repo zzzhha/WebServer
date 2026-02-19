@@ -230,10 +230,8 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
     
     std::string error_data = error_response.Serialize();
     outputbuffer.append(error_data.c_str(), error_data.size());
+    conn->setCloseOnSendComplete(true);
     conn->send();
-    
-    // 关闭连接
-    conn->closeConnection();
   }
 }
 

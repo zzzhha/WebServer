@@ -109,9 +109,7 @@ std::string HttpResponse::GetVersionStr() const {
 //http编码操作
 void HttpResponse::SetStatusCode(HttpStatusCode statuscode) {
   statusCode_ = statuscode;
-  if (statusReason_.empty()) {
-    statusReason_ = GetDefaultReason(statuscode);
-  }
+  statusReason_ = GetDefaultReason(statuscode);
 }
 
 void HttpResponse::Clear() {
@@ -176,6 +174,10 @@ void HttpResponse::SetStatusCodeInt(int code) {
 
 std::string HttpResponse::Serialize() const {
   std::string result = GetVersionStr() + " " + std::to_string(static_cast<int>(statusCode_)) + " " + statusReason_ + "\r\n";
+
+  if (!HasHeader("Content-Length") && !HasHeader("Transfer-Encoding")) {
+    result += "Content-Length: " + std::to_string(body_.size()) + "\r\n";
+  }
 
   for(auto &pair : headers_) {
     result += pair.first + ": " + pair.second + "\r\n";
