@@ -264,43 +264,56 @@
         downloadBtns.forEach(btn => {
             btn.addEventListener('click', function() {
                 const videoName = this.getAttribute('data-video');
-                downloadVideo(videoName);
+                downloadVideo(videoName, this);
             });
         });
 
         videoNames.forEach(name => {
             name.addEventListener('click', function() {
                 const videoName = this.getAttribute('data-video');
-                downloadVideo(videoName);
+                downloadVideo(videoName, this);
             });
         });
 
-        function downloadVideo(videoName) {
+        function downloadVideo(videoName, triggerEl) {
             // 向后端发送GET请求，下载video文件夹内的视频
             // 使用路径格式：/download/video/filename
             const downloadUrl = `/download/video/${videoName}`;
-            fetch(downloadUrl, {
-                method: 'GET'
-            })
-            .then(response => {
-                if (response.ok) return response.blob();
-                throw new Error('下载失败');
-            })
-            .then(blob => {
-                // 前端创建临时链接实现下载
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = videoName;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            })
-            .catch(err => {
-                console.error(err);
-                console.log('下载失败，请重试');
-            });
+            
+            let statusEl = document.getElementById('downloadStatus');
+            if (!statusEl) {
+                statusEl = document.createElement('div');
+                statusEl.id = 'downloadStatus';
+                statusEl.style.position = 'fixed';
+                statusEl.style.right = '20px';
+                statusEl.style.bottom = '20px';
+                statusEl.style.padding = '10px 14px';
+                statusEl.style.background = 'rgba(0,0,0,0.75)';
+                statusEl.style.color = '#fff';
+                statusEl.style.borderRadius = '6px';
+                statusEl.style.fontSize = '14px';
+                statusEl.style.zIndex = '9999';
+                statusEl.style.display = 'none';
+                document.body.appendChild(statusEl);
+            }
+            
+            const originalText = triggerEl ? triggerEl.textContent : null;
+            if (triggerEl) triggerEl.textContent = '开始下载...';
+            statusEl.style.display = 'block';
+            statusEl.textContent = `已开始下载：${videoName}`;
+            
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = videoName;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            if (triggerEl && originalText != null) {
+                setTimeout(() => { triggerEl.textContent = originalText; }, 800);
+            }
+            setTimeout(() => { statusEl.style.display = 'none'; }, 1200);
         }
     </script>
 </body>

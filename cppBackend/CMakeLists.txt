@@ -69,6 +69,7 @@ include_directories(
     timer
     http/include
     services/include
+    download/include
     views/include
     auth/jwt
 )
@@ -140,6 +141,7 @@ set(SERVICES_SOURCES
     services/src/AuthService.cpp
     services/src/DownloadService.cpp
     services/src/StaticFileService.cpp
+    services/src/FileServeUtil.cpp
 )
 
 # Auth模块源文件（JWT认证）
@@ -189,6 +191,13 @@ set(REACTOR_SOURCES
     reactor/ThreadPool.h
 )
 
+set(DOWNLOAD_SOURCES
+    download/src/SimpleHttpClient.cpp
+    download/src/ChunkedDownloadManager.cpp
+    download/src/DownloadTaskManager.cpp
+    download/src/FileHashUtil.cpp
+)
+
 # Timer模块源文件
 set(TIMER_SOURCES
     timer/TimeWheel.h
@@ -206,6 +215,7 @@ add_executable(${PROJECT_NAME}
     ${REACTOR_SOURCES}
     ${TIMER_SOURCES}
     ${SERVICES_SOURCES}
+    ${DOWNLOAD_SOURCES}
     ${VIEWS_SOURCES}
     ${AUTH_SOURCES}
 )
@@ -222,5 +232,3 @@ target_link_libraries(${PROJECT_NAME}
     m
     rt
 )
-
-

@@ -13,6 +13,9 @@
 #include"../views/include/VideoPageHandler.h"
 #include"../views/include/IPageHandler.h"
 #include<algorithm>
+#include<cerrno>
+#include<cstring>
+#include<fcntl.h>
 #include<sstream>
 
 HttpServer::HttpServer(const std::string &ip,uint16_t port,int timeoutS,bool OptLinger,
@@ -154,6 +157,31 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
     } else {
       response.SetHeader("Connection", "close");
       conn->setCloseOnSendComplete(true);
+    }
+
+    if(response.HasSendFile()){
+      int file_fd = ::open(response.GetSendFilePath().c_str(), O_RDONLY | O_CLOEXEC);
+      if(file_fd < 0){
+        int e = errno;
+        response.ClearSendFile();
+        response.SetHeader("Content-Type", "text/plain");
+        if(e == EACCES){
+          response.SetStatusCode(HttpStatusCode::FORBIDDEN);
+          response.SetBody("Forbidden");
+        }else{
+          response.SetStatusCode(HttpStatusCode::INTERNAL_SERVER_ERROR);
+          response.SetBody("Internal Server Error");
+        }
+      }else{
+        response.SetBody("");
+        std::string response_data = response.Serialize();
+        outputbuffer.append(response_data.c_str(), response_data.size());
+        conn->StartSendFile(file_fd, static_cast<off_t>(response.GetSendFileOffset()),
+                            static_cast<size_t>(response.GetSendFileLength()), true);
+        conn->send();
+        LOGINFO("HTTP响应已发送(文件) - 状态码: " + std::to_string(response.getStatusCodeInt()) +" 头部大小: " + std::to_string(response_data.size()));
+        return;
+      }
     }
     
     // 序列化响应
@@ -344,6 +372,13 @@ void HttpServer::SetupRoutes(Router& router) {
     new_params.params_["static_path"] = static_path_;
     return DownloadService::HandleDownload(request, response, static_path_);
   });
+  router.Head("/download/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    RouteParams new_params = params;
+    new_params.params_["static_path"] = static_path_;
+    return DownloadService::HandleDownload(request, response, static_path_);
+  });
   
   // 注册静态文件路由
   router.Get("/images/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
@@ -351,8 +386,18 @@ void HttpServer::SetupRoutes(Router& router) {
     if (!request) return false;
     return StaticFileService::HandleStaticFile(request, response, static_path_);
   });
+  router.Head("/images/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return StaticFileService::HandleStaticFile(request, response, static_path_);
+  });
   
   router.Get("/video/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return StaticFileService::HandleStaticFile(request, response, static_path_);
+  });
+  router.Head("/video/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
     auto* request = dynamic_cast<HttpRequest*>(&message);
     if (!request) return false;
     return StaticFileService::HandleStaticFile(request, response, static_path_);

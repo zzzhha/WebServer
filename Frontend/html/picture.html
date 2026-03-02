@@ -330,27 +330,22 @@
                 const fileName = this.getAttribute('data-file');
                 // 使用GET请求，路径格式：/download/images/filename
                 const downloadUrl = `/download/images/${fileName}`;
-                fetch(downloadUrl, {
-                    method: 'GET'
-                })
-                .then(response => {
-                    if (response.ok) return response.blob();
-                    throw new Error('下载失败');
-                })
-                .then(blob => {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = fileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                })
-                .catch(err => {
-                    console.error(err);
-                    console.log('下载失败，请重试');
-                });
+                const originalText = this.textContent;
+                this.disabled = true;
+                this.textContent = '开始下载...';
+                
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = fileName;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                setTimeout(() => {
+                    this.disabled = false;
+                    this.textContent = originalText;
+                }, 800);
             });
         });
 

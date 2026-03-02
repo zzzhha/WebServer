@@ -119,6 +119,7 @@ void HttpResponse::Clear() {
   headers_.clear();
   body_.clear();
   contentEncoding_ = HttpContentEncoding::IDENTITY;
+  ClearSendFile();
 }
 
 std::string HttpResponse::GetContentEncodingStr() const {
@@ -219,6 +220,20 @@ void HttpResponse::AppendBodyChunk(const char* data,size_t len) {
   body_.append(data,len);
 }
 
+void HttpResponse::SetSendFile(const std::string& path, uint64_t offset, uint64_t length){
+  send_file_enabled_ = true;
+  send_file_path_ = path;
+  send_file_offset_ = offset;
+  send_file_length_ = length;
+}
+
+void HttpResponse::ClearSendFile(){
+  send_file_enabled_ = false;
+  send_file_path_.clear();
+  send_file_offset_ = 0;
+  send_file_length_ = 0;
+}
+
 std::string HttpResponse::GetDefaultReason(HttpStatusCode statusCode) {
   switch (statusCode) {
     case HttpStatusCode::CONTINUE: return "Continue";
@@ -243,6 +258,7 @@ std::string HttpResponse::GetDefaultReason(HttpStatusCode statusCode) {
     case HttpStatusCode::PAYLOAD_TOO_LARGE: return "Payload Too Large";
     case HttpStatusCode::URI_TOO_LONG: return "URI Too Long";
     case HttpStatusCode::UNSUPPORTED_MEDIA_TYPE: return "Unsupported Media Type";
+    case HttpStatusCode::RANGE_NOT_SATISFIABLE: return "Range Not Satisfiable";
     case HttpStatusCode::INTERNAL_SERVER_ERROR: return "Internal Server Error";
     case HttpStatusCode::NOT_IMPLEMENTED: return "Not Implemented";
     case HttpStatusCode::BAD_GATEWAY: return "Bad Gateway";

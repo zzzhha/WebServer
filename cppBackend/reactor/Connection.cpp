@@ -13,7 +13,7 @@ Connection::Connection(EventLoop* loop,std::unique_ptr<Socket>clientsock)
 }
 Connection::~Connection(){
 LOGDEBUG("Connection析构函数调用");
-  
+  ClearSendFile();
 }
 
 int Connection::fd() const{
@@ -87,23 +87,52 @@ void Connection::writecallback(){
 LOGDEBUG("准备发送数据");
   const size_t max_ioves =16;
   struct iovec iovs[max_ioves];
-  size_t iov_count = 0;
-  size_t total_bytes_to_send =0;
 
-  iov_count =outputbuffer_.getIOVecs(iovs,max_ioves,outputbuffer_.read_pos_);
-  total_bytes_to_send = outputbuffer_.readableBytes();
+  while(true){
+    size_t iov_count = 0;
+    iov_count = outputbuffer_.getIOVecs(iovs,max_ioves,outputbuffer_.read_pos_);
+    if(iov_count > 0){
+      ssize_t nwritten = ::writev(fd(),iovs,iov_count);
+      if(nwritten > 0){
+        outputbuffer_.consumeBytes(nwritten);
+        continue;
+      }else if(nwritten == -1){
+        if(errno ==EAGAIN || errno == EWOULDBLOCK){
+          return;
+        }else{
+          LOGERROR("writev failed, fd: "+std::to_string(fd())+" error: "+strerror(errno));
+          errorcallback();
+          return;
+        }
+      }
+    }
 
-  if(iov_count == 0){
-    clientchannel_->disablewriting();
-    return;
-  }
+    if(sendfile_.active){
+      if(sendfile_.remaining == 0){
+        ClearSendFile();
+      }else{
+        off_t off = sendfile_.offset;
+        ssize_t n = ::sendfile(fd(), sendfile_.file_fd, &off, sendfile_.remaining);
+        if(n > 0){
+          sendfile_.offset = off;
+          sendfile_.remaining -= static_cast<size_t>(n);
+          continue;
+        }else if(n == 0){
+          sendfile_.remaining = 0;
+          ClearSendFile();
+        }else{
+          if(errno ==EAGAIN || errno == EWOULDBLOCK){
+            return;
+          }else{
+            LOGERROR("sendfile failed, fd: "+std::to_string(fd())+" error: "+strerror(errno));
+            errorcallback();
+            return;
+          }
+        }
+      }
+    }
 
-  ssize_t nwritten = ::writev(fd(),iovs,iov_count);
-
-  if(nwritten >0){
-    outputbuffer_.consumeBytes(nwritten);
-    //如果发送缓冲区没有数据了，就取消写事件
-    if(outputbuffer_.readableBytes() ==0){
+    if(outputbuffer_.readableBytes() == 0 && !sendfile_.active){
       clientchannel_->disablewriting();
 LOGDEBUG("发送数据完毕");
       if(sendcompletecallback_ && !disconnect_){
@@ -113,15 +142,7 @@ LOGDEBUG("发送数据完毕");
       if(close_on_send_complete_ && !disconnect_){
         closecallback();
       }
-
-    }
-  }else if(nwritten == -1){
-    if(errno ==EAGAIN || errno ==EWOULDBLOCK){
-      // 正常情况：内核缓冲区已满，下次再试
-      return ;
-    }else{
-      LOGERROR("writev failed, fd: "+std::to_string(fd())+" error: "+strerror(errno));
-      errorcallback();
+      return;
     }
   }
 }
@@ -192,4 +213,21 @@ void Connection::setupdatetimercallback(std::function<void(spConnection)> fn){
 
 void Connection::setclosetimercallback(std::function<void(spConnection)>fn){
   closetimercallback_=fn;
+}
+
+void Connection::StartSendFile(int file_fd, off_t offset, size_t count, bool close_fd){
+  ClearSendFile();
+  sendfile_.file_fd = file_fd;
+  sendfile_.offset = offset;
+  sendfile_.remaining = count;
+  sendfile_.close_fd = close_fd;
+  sendfile_.active = (file_fd >= 0);
+  clientchannel_->enablewriting();
+}
+
+void Connection::ClearSendFile(){
+  if(sendfile_.file_fd >= 0 && sendfile_.close_fd){
+    ::close(sendfile_.file_fd);
+  }
+  sendfile_ = SendFileState{};
 }

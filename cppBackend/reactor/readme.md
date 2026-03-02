@@ -1,23 +1,51 @@
-梳理15中服务器的大致流程:
-  1.创建tcpserver类 tcpserver类会初始化Acceptor Eventloop成员变量,并将acceptor的回调函数成员绑定自身的newconnecion函数
-    a.因为是loop是栈对象,所以在构造函数前就会初始化
-      i.eventloop的初始化会new一个Epoll对象
-      ii.Epoll的构造函数会调用epoll_create创建epoll句柄
-    b.acceptor的构造函数中构建了listenfd,完成了bind,listen,通过channel将listenfd绑定到epoll上,设置Channel的回调函数,监听listenfd的读文件
-  2.main函数直接调用tcpserver.start(),start又会调用EventLoop类的run函数,开始loop函数
-    a.loop封装了epoll_wait(),根据epoll_wait监听的fd,封装为channel,获取fd,events(监听的事件),revents(本次监听发生的事件)
-      并以channel*数组的形式返回
-    b.返回后调用channel的处理函数,他会根据不同类型进行不同的判断,其中如果发生读事件则调用回调函数成员
-      i.回调函数会根据不同channel的对象而不同,如果是监听listenfd的channel对象(被封装成了acceptor类),则会调用创建新的客户端连接的函数
-      ii.如果是已连接的客户端的channel(被封装成了connection类),则会调用处理函数
-    c.服务器第一次loop返回的channel*数组只会有建立listenfd的读事件发生,因此只会调用已有的acceptor类成员
-      调用其回调函数,创建一个新的客户端连接
-      i.acceptor有两个回调函数,一个是channel类中的回调函数,一个是类自带的回调函数
-        loop返回的channel*数组会调用channel类的回调函数,这个回调函数是为了建立新客户端的连接
-        此回调函数中,因为要建立connectfd,就要建立Connection类,但是Connection和Acceptor类都是在Channel类的基础上构建的平等的类
-        所以不能让Acceptor类创建Connection类,故而使用类自带的回调函数,让tcpserver类完成构造(因为connection对象应该在tcpserver中被构造)
-    d.第一次之后的loop则会可能返回不同性质channel(监听fd,客户端fd),随后根据fd不同来调用channel的回调函数   
-    
+Reactor 模块流程概览（按当前实现）
 
-    
+1) 组件关系
+- TcpServer：组织主从 EventLoop、IO 线程池、Acceptor、Connection 生命周期与回调
+- EventLoop/Epoll/Channel：epoll_wait 事件获取与回调分发
+- Acceptor：监听 listenfd，accept 新连接并回调 TcpServer::newconnection
+- Connection：管理 connfd 读写、输入/输出 BufferBlock、关闭/错误/写完成回调
+- HttpServer：作为业务适配层，把 Connection 的字节流交给 HttpFacade 处理并回写响应
+
+2) 启动阶段
+- main 调用 HttpServer::start → TcpServer::start
+- TcpServer::start 启动 TimeWheel，并运行 mainloop_->run()
+- TcpServer 构造时创建 subloops_，并把每个 subloop 的 EventLoop::run 投递到 IO 线程池执行
+
+3) 建立连接（listenfd → connfd）
+- mainloop_ 上的 Acceptor::newconnection 在读事件触发时循环 accept4
+  - accept4 返回 EAGAIN/EWOULDBLOCK：本轮 accept 结束
+  - 其他错误：记录日志并返回，不构造非法 fd
+- Acceptor 将 connfd 封装为 Socket 并回调到 TcpServer::newconnection
+- TcpServer::newconnection
+  - 选择一个 subloop（fd % threadnum_）
+  - 创建 Connection（绑定到该 subloop）
+  - 设置 close/error/message/sendcomplete 回调，并把 conn 放入 conns_
+  - 关键：通过 subloop->queueinloop 调用 conn->connectEstablished()，确保 epoll 注册与 enablereading 在所属 IO 线程执行
+  - 回调 HttpServer::HandleNewConnection（业务层可在此挂载连接级上下文）
+
+4) 事件分发（Channel::handleevent）
+- 优先处理 EPOLLERR/EPOLLHUP（直接走 error 回调并返回）
+- EPOLLIN/EPOLLPRI：触发 readcallback
+- EPOLLOUT：触发 writecallback
+- EPOLLRDHUP：触发 closecallback
+
+5) 读数据（Connection::onmessage）
+- 采用 while 循环读到 EAGAIN/EWOULDBLOCK 为止（ET 模式）
+- 读到 EAGAIN/EWOULDBLOCK：
+  - 更新连接超时（TimeWheel）
+  - 回调上层 onmessage（HttpServer::HandleMessage）
+- read 返回 0：对端关闭，进入 closecallback
+- read 返回其他错误（非 EINTR/EAGAIN）：进入 errorcallback，避免异常状态与忙等
+
+6) 写数据（Connection::send / writecallback）
+- HttpServer 将响应序列化后 append 到 outputbuffer_，调用 conn->send()
+- conn->send 会在 IO 线程内直接 enablewriting；否则通过 queueinloop 投递给所属 IO 线程执行
+- writecallback 使用 writev 批量发送，outputbuffer_ 发送完会 disablewriting
+- 若 close_on_send_complete_ 为 true，则在发送完毕后关闭连接（用于错误响应或非 keep-alive 场景）
+
+7) 本次提交相关稳定性修复点（reactor侧）
+- Channel 分发不再使用 else-if，避免 EPOLLIN/EPOLLOUT 同时到来时写事件被吞
+- Connection 的 epoll 注册/启用读事件放到 connectEstablished，并由 subloop 执行，规避跨线程竞态
+- accept/read 错误处理补强：accept4 失败不构造连接；read 非 EAGAIN/EINTR 错误走 error 关闭
     

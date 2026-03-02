@@ -4,6 +4,7 @@
 #include<map>
 #include<vector>
 #include<memory>
+#include<cstdint>
 #include"IHttpMessage.h"
 
 enum class HttpStatusCode{
@@ -32,6 +33,7 @@ enum class HttpStatusCode{
   PAYLOAD_TOO_LARGE = 413,
   URI_TOO_LONG = 414,
   UNSUPPORTED_MEDIA_TYPE = 415,
+  RANGE_NOT_SATISFIABLE = 416,
 
   INTERNAL_SERVER_ERROR = 500,
   NOT_IMPLEMENTED = 501,
@@ -98,6 +100,13 @@ public:
   bool isClientError() const { return static_cast<int>(statusCode_) >=400 && static_cast<int>(statusCode_)< 500; }
   bool isServerError() const { return static_cast<int>(statusCode_) >=500 && static_cast<int>(statusCode_)< 600; }
 
+  void SetSendFile(const std::string& path, uint64_t offset, uint64_t length);
+  bool HasSendFile() const { return send_file_enabled_; }
+  const std::string& GetSendFilePath() const { return send_file_path_; }
+  uint64_t GetSendFileOffset() const { return send_file_offset_; }
+  uint64_t GetSendFileLength() const { return send_file_length_; }
+  void ClearSendFile();
+
 private:
   static std::string GetDefaultReason(HttpStatusCode statusCode);
   static std::string trim(std::string_view& view);
@@ -109,4 +118,9 @@ private:
   std::vector<std::pair<std::string,std::string>>headers_;
   std::string body_;
   HttpContentEncoding contentEncoding_;
+
+  bool send_file_enabled_{false};
+  std::string send_file_path_;
+  uint64_t send_file_offset_{0};
+  uint64_t send_file_length_{0};
 };

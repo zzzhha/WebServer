@@ -4,6 +4,7 @@
 #include<any>
 #include<sys/syscall.h>
 #include<sys/sendfile.h>
+#include<unistd.h>
 #include"Socket.h"
 #include"InetAddress.h"
 #include"Channel.h"
@@ -38,6 +39,16 @@ private:
   BufferBlock outputbuffer_;      //发送缓冲区
 
   std::any context_;
+
+  struct SendFileState{
+    int file_fd{-1};
+    off_t offset{0};
+    size_t remaining{0};
+    bool close_fd{true};
+    bool active{false};
+  };
+
+  SendFileState sendfile_;
 
   //定时器
   int tc_fd;
@@ -82,6 +93,10 @@ public:
   // 设置发送完成后是否关闭连接
   void setCloseOnSendComplete(bool close) { close_on_send_complete_ = close; }
   bool getCloseOnSendComplete() const { return close_on_send_complete_; }
+
+  void StartSendFile(int file_fd, off_t offset, size_t count, bool close_fd = true);
+  void ClearSendFile();
+  bool HasSendFile() const { return sendfile_.active; }
 
   template <class T>
   void SetContext(T&& ctx) { context_ = std::forward<T>(ctx); }
