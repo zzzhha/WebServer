@@ -2,8 +2,29 @@
 #include "builder/ResponseBuilder.h"
 #include "handler/AppHandlers.h"
 #include "logger/log_fac.h"
+#include "error/HttpErrorUtil.h"
+#include <chrono>
+#include <cstdio>
+#include <ctime>
 #include <fstream>
 #include <sstream>
+
+static std::string NowIso8601Utc() {
+    using clock = std::chrono::system_clock;
+    auto now = clock::now();
+    std::time_t t = clock::to_time_t(now);
+    std::tm tm{};
+#if defined(_WIN32)
+    gmtime_s(&tm, &t);
+#else
+    gmtime_r(&t, &tm);
+#endif
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
+                  tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+                  tm.tm_hour, tm.tm_min, tm.tm_sec);
+    return std::string(buf);
+}
 
 /**
  * 创建成功响应
@@ -65,21 +86,46 @@ std::shared_ptr<HttpResponse> ResponseFactory::CreateErrorWithDetails(
     HttpStatusCode code,
     const std::string& message,
     const std::map<std::string, std::string>& details) {
+    const std::string ts = NowIso8601Utc();
+    const std::string c = "HTTP_" + std::to_string(static_cast<int>(code));
     std::ostringstream json;
-    json << "{\"success\":false,\"error\":{\"code\":" << static_cast<int>(code)
-         << ",\"message\":\"" << message << "\"";
-    
+    json << "{";
+    json << "\"success\":false";
+    json << ",\"code\":\"" << JsonEscape(c) << "\"";
+    json << ",\"message\":\"" << JsonEscape(message) << "\"";
+    json << ",\"timestamp\":\"" << JsonEscape(ts) << "\"";
+    json << ",\"details\":{";
+    json << "\"http_status\":" << static_cast<int>(code);
     if (!details.empty()) {
-        json << ",\"details\":{";
+        json << ",\"fields\":{";
         bool first = true;
         for (const auto& [key, value] : details) {
             if (!first) json << ",";
-            json << "\"" << key << ":\"" << value << "\"";
+            json << "\"" << JsonEscape(key) << "\":\"" << JsonEscape(value) << "\"";
             first = false;
         }
         json << "}";
     }
-    json << "}}";
+    json << "}";
+    json << ",\"error\":{";
+    json << "\"code\":\"" << JsonEscape(c) << "\"";
+    json << ",\"message\":\"" << JsonEscape(message) << "\"";
+    json << ",\"details\":{";
+    json << "\"http_status\":" << static_cast<int>(code);
+    if (!details.empty()) {
+        json << ",\"fields\":{";
+        bool first = true;
+        for (const auto& [key, value] : details) {
+            if (!first) json << ",";
+            json << "\"" << JsonEscape(key) << "\":\"" << JsonEscape(value) << "\"";
+            first = false;
+        }
+        json << "}";
+    }
+    json << "}";
+    json << ",\"timestamp\":\"" << JsonEscape(ts) << "\"";
+    json << "}";
+    json << "}";
 
     LOGWARNING("创建详细错误响应: " + std::to_string(static_cast<int>(code)) + " - " + message);
     return ResponseBuilder::New()
@@ -87,6 +133,18 @@ std::shared_ptr<HttpResponse> ResponseFactory::CreateErrorWithDetails(
         .Header("Content-Type", "application/json; charset=utf-8")
         .Body(json.str())
         .Build();
+}
+
+std::shared_ptr<HttpResponse> ResponseFactory::CreateHttpError(
+    const HttpError& err,
+    const std::string& request_id,
+    bool include_context) {
+    auto resp = std::make_shared<HttpResponse>();
+    resp->SetStatusCode(err.status);
+    resp->SetHeader("Content-Type", "application/json; charset=utf-8");
+    resp->SetHeader("X-Request-Id", request_id);
+    resp->SetBody(BuildHttpErrorJson(err, request_id, include_context));
+    return resp;
 }
 
 /**

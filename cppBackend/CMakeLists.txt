@@ -142,6 +142,8 @@ set(SERVICES_SOURCES
     services/src/DownloadService.cpp
     services/src/StaticFileService.cpp
     services/src/FileServeUtil.cpp
+    services/src/FileApiService.cpp
+    services/src/UploadService.cpp
 )
 
 # Auth模块源文件（JWT认证）

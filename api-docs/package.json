@@ -1,0 +1,16 @@
+{
+  "name": "webserver-api-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "validate": "swagger-cli validate openapi.yaml",
+    "all": "npm run generate && npm run validate"
+  },
+  "devDependencies": {
+    "@apidevtools/swagger-cli": "^4.0.4",
+    "openapi-to-postmanv2": "^5.0.0",
+    "yaml": "^2.8.1"
+  }
+}
+

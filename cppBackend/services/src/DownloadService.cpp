@@ -41,8 +41,8 @@ bool DownloadService::HandleDownload(HttpRequest* request, HttpResponse& respons
         if (folder_slash != std::string::npos) {
             folder = path.substr(start, folder_slash - start);
             
-            // 验证文件夹只能是images或video
-            if (folder != "images" && folder != "video") {
+            // 验证文件夹只能是images、video或uploads
+            if (folder != "images" && folder != "video" && folder != "uploads") {
                 LOGWARNING("下载失败：非法的文件夹 - " + folder);
                 response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
                 response.SetHeader("Content-Type", "text/plain");

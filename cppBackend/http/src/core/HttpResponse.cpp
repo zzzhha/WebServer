@@ -161,6 +161,8 @@ void HttpResponse::SetStatusCodeInt(int code) {
     case 413: statusCode_ = HttpStatusCode::PAYLOAD_TOO_LARGE; break;
     case 414: statusCode_ = HttpStatusCode::URI_TOO_LONG; break;
     case 415: statusCode_ = HttpStatusCode::UNSUPPORTED_MEDIA_TYPE; break;
+    case 416: statusCode_ = HttpStatusCode::RANGE_NOT_SATISFIABLE; break;
+    case 431: statusCode_ = HttpStatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE; break;
     
     case 500: statusCode_ = HttpStatusCode::INTERNAL_SERVER_ERROR; break;
     case 501: statusCode_ = HttpStatusCode::NOT_IMPLEMENTED; break;
@@ -259,6 +261,7 @@ std::string HttpResponse::GetDefaultReason(HttpStatusCode statusCode) {
     case HttpStatusCode::URI_TOO_LONG: return "URI Too Long";
     case HttpStatusCode::UNSUPPORTED_MEDIA_TYPE: return "Unsupported Media Type";
     case HttpStatusCode::RANGE_NOT_SATISFIABLE: return "Range Not Satisfiable";
+    case HttpStatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE: return "Request Header Fields Too Large";
     case HttpStatusCode::INTERNAL_SERVER_ERROR: return "Internal Server Error";
     case HttpStatusCode::NOT_IMPLEMENTED: return "Not Implemented";
     case HttpStatusCode::BAD_GATEWAY: return "Bad Gateway";

@@ -1,0 +1,1289 @@
+openapi: 3.0.3
+info:
+  title: WebServer API
+  version: 1.0.0
+  description: |
+    该文档描述 WebServer 当前对外 HTTP 接口（页面、认证、文件列表/预览、分片上传、静态资源与下载）。
+
+    统一 JSON 响应约定：
+    - 成功：`{"success": true, "message": "...", "data": ... }`（data 视接口而定）
+    - 失败：`{"success": false, "code": "HTTP_<status>", "message": "...", "timestamp": "...", "details": {"http_status": <status>}, "error": {...同结构...} }`
+
+    CORS：服务端对预检请求（OPTIONS）返回 204，并附带 `Access-Control-Allow-*` 头；本文档未为每个路径重复列出 OPTIONS。
+
+servers:
+  - url: http://127.0.0.1:5050
+    description: Local development (default)
+  - url: http://127.0.0.1:18080
+    description: Legacy local port
+
+tags:
+  - name: Pages
+    description: HTML 页面
+  - name: Auth
+    description: 注册/登录（x-www-form-urlencoded）
+  - name: Files
+    description: 文件列表与预览信息
+  - name: Uploads
+    description: 分片上传（init/part/complete）
+  - name: Download
+    description: 下载（支持 Range/ETag/If-Modified-Since）
+  - name: Static
+    description: 静态资源（支持 Range/ETag/If-Modified-Since）
+  - name: Misc
+    description: 其他
+
+paths:
+  /:
+    get:
+      tags: [Pages]
+      summary: 首页（等价 /index.html）
+      responses:
+        '200':
+          description: HTML
+          content:
+            text/html:
+              schema:
+                type: string
+              examples:
+                ok:
+                  value: "<!doctype html><html>..."
+        '404':
+          description: 页面不存在
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /welcome.html:
+    get:
+      tags: [Pages]
+      summary: 欢迎页
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlOk'
+        '404':
+          $ref: '#/components/responses/HtmlNotFound'
+
+  /index.html:
+    get:
+      tags: [Pages]
+      summary: 首页
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlOk'
+        '404':
+          $ref: '#/components/responses/HtmlNotFound'
+
+  /login.html:
+    get:
+      tags: [Pages]
+      summary: 登录页
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlOk'
+        '404':
+          $ref: '#/components/responses/HtmlNotFound'
+
+  /register.html:
+    get:
+      tags: [Pages]
+      summary: 注册页
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlOk'
+        '404':
+          $ref: '#/components/responses/HtmlNotFound'
+
+  /picture.html:
+    get:
+      tags: [Pages]
+      summary: 图片页
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlOk'
+        '404':
+          $ref: '#/components/responses/HtmlNotFound'
+
+  /video.html:
+    get:
+      tags: [Pages]
+      summary: 视频页
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlOk'
+        '404':
+          $ref: '#/components/responses/HtmlNotFound'
+
+  /register:
+    post:
+      tags: [Auth]
+      summary: 用户注册
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              example:
+                value:
+                  username: alice_01
+                  password: "123456"
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                ok:
+                  value:
+                    success: true
+                    message: 注册成功
+        '400':
+          $ref: '#/components/responses/JsonError400'
+        '500':
+          $ref: '#/components/responses/JsonError500'
+
+  /login:
+    post:
+      tags: [Auth]
+      summary: 用户登录
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              example:
+                value:
+                  username: alice_01
+                  password: "123456"
+      responses:
+        '200':
+          description: 登录成功（返回 JWT）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              examples:
+                ok:
+                  value:
+                    success: true
+                    message: 登录成功
+                    data:
+                      token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '401':
+          description: 用户名或密码错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid:
+                  value:
+                    success: false
+                    code: HTTP_401
+                    message: 用户名或密码错误
+                    timestamp: 2026-03-04T00:00:00Z
+                    details:
+                      http_status: 401
+                    error:
+                      code: HTTP_401
+                      message: 用户名或密码错误
+                      details:
+                        http_status: 401
+                      timestamp: 2026-03-04T00:00:00Z
+        '400':
+          $ref: '#/components/responses/JsonError400'
+        '500':
+          $ref: '#/components/responses/JsonError500'
+
+  /api/files:
+    get:
+      tags: [Files]
+      summary: 获取指定目录文件列表
+      parameters:
+        - $ref: '#/components/parameters/FolderQuery'
+      responses:
+        '200':
+          description: 文件列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileListResponse'
+              examples:
+                ok:
+                  value:
+                    success: true
+                    message: 操作成功
+                    data:
+                      files:
+                        - folder: images
+                          name: sample.jpg
+                          size: 12345
+                          mimeType: image/jpeg
+                          updatedAt: 2026-03-04T00:00:00Z
+                          url: /images/sample.jpg
+                          downloadUrl: /download/images/sample.jpg
+        '400':
+          $ref: '#/components/responses/JsonError400'
+        '404':
+          description: 目录不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/JsonError500'
+
+  /api/files/preview:
+    get:
+      tags: [Files]
+      summary: 获取文件预览信息（含直链与下载链）
+      parameters:
+        - $ref: '#/components/parameters/FolderQuery'
+        - name: name
+          in: query
+          required: true
+          description: 文件名（禁止 / \\ .. \0，且需符合 folder 对应的扩展名白名单）
+          schema:
+            type: string
+            minLength: 1
+          example: sample.jpg
+      responses:
+        '200':
+          description: 预览信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilePreviewResponse'
+              examples:
+                ok:
+                  value:
+                    success: true
+                    message: 操作成功
+                    data:
+                      folder: images
+                      name: sample.jpg
+                      size: 12345
+                      mimeType: image/jpeg
+                      updatedAt: 2026-03-04T00:00:00Z
+                      url: /images/sample.jpg
+                      downloadUrl: /download/images/sample.jpg
+                      supportRange: true
+        '400':
+          $ref: '#/components/responses/JsonError400'
+        '404':
+          description: 文件不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/JsonError500'
+
+  /api/uploads/init:
+    post:
+      tags: [Uploads]
+      summary: 初始化/恢复分片上传会话
+      description: |
+        用于创建或恢复一个上传会话。
+        - 文件大小限制：`(0, 200MB]`
+        - chunkSize 限制：`(0, 8MB]`，非法时回落到 1MB。
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UploadInitRequest'
+            examples:
+              new:
+                value:
+                  fileName: big.mp4
+                  folder: video
+                  fileSize: 10485760
+                  chunkSize: 1048576
+              resume:
+                value:
+                  fileName: big.mp4
+                  folder: video
+                  fileSize: 10485760
+                  chunkSize: 1048576
+                  uploadId: 1772607242572-327b23c6
+      responses:
+        '200':
+          description: 返回 uploadId 与已上传分片列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadInitResponse'
+              examples:
+                ok:
+                  value:
+                    success: true
+                    message: 操作成功
+                    data:
+                      uploadId: 1772607242572-327b23c6
+                      chunkSize: 1048576
+                      uploadedParts: [0, 2]
+        '400':
+          $ref: '#/components/responses/JsonError400'
+        '500':
+          $ref: '#/components/responses/JsonError500'
+
+  /api/uploads/{uploadId}/parts/{partNo}:
+    put:
+      tags: [Uploads]
+      summary: 上传单个分片
+      parameters:
+        - $ref: '#/components/parameters/UploadIdPath'
+        - $ref: '#/components/parameters/PartNoPath'
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: 分片写入成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadPartResponse'
+              examples:
+                ok:
+                  value:
+                    success: true
+                    message: 操作成功
+                    data:
+                      partNo: 0
+                      size: 1048576
+        '400':
+          $ref: '#/components/responses/JsonError400'
+        '404':
+          description: 上传会话不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/JsonError500'
+
+  /api/uploads/{uploadId}/complete:
+    post:
+      tags: [Uploads]
+      summary: 合并分片并生成最终文件
+      parameters:
+        - $ref: '#/components/parameters/UploadIdPath'
+      responses:
+        '200':
+          description: 合并成功（返回最终文件直链与下载链）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadCompleteResponse'
+              examples:
+                ok:
+                  value:
+                    success: true
+                    message: 操作成功
+                    data:
+                      folder: video
+                      name: big.mp4
+                      url: /video/big.mp4
+                      downloadUrl: /download/video/big.mp4
+        '400':
+          description: 分片缺失/参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 上传会话不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/JsonError500'
+
+  /download/{folder}/{filename}:
+    get:
+      tags: [Download]
+      summary: 下载文件（attachment）
+      description: |
+        支持 Range/条件请求：
+        - `Range: bytes=start-end` → `206 Partial Content`
+        - `If-None-Match` / `If-Modified-Since` → `304 Not Modified`
+      parameters:
+        - $ref: '#/components/parameters/FolderPathDownload'
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          example: sample.jpg
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          $ref: '#/components/responses/BinaryFile200'
+        '206':
+          $ref: '#/components/responses/BinaryFile206'
+        '304':
+          description: Not Modified
+        '400':
+          $ref: '#/components/responses/JsonError400'
+        '404':
+          description: 文件不存在
+          content:
+            text/html:
+              schema:
+                type: string
+        '416':
+          description: Range Not Satisfiable
+        '500':
+          $ref: '#/components/responses/JsonError500'
+    head:
+      tags: [Download]
+      summary: 获取下载文件元信息（无 body）
+      parameters:
+        - $ref: '#/components/parameters/FolderPathDownload'
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          example: sample.jpg
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          description: OK（无 body）
+          headers:
+            Content-Length:
+              schema:
+                type: integer
+                format: int64
+            Content-Type:
+              schema:
+                type: string
+            Content-Disposition:
+              schema:
+                type: string
+        '206':
+          description: Partial Content（无 body）
+          headers:
+            Content-Range:
+              schema:
+                type: string
+        '304':
+          description: Not Modified
+        '400':
+          $ref: '#/components/responses/JsonError400'
+        '404':
+          description: 文件不存在
+        '416':
+          description: Range Not Satisfiable
+        '500':
+          $ref: '#/components/responses/JsonError500'
+
+  /images/{filename}:
+    get:
+      tags: [Static]
+      summary: 获取图片静态资源
+      parameters:
+        - $ref: '#/components/parameters/FilenamePath'
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          $ref: '#/components/responses/AnyFile200'
+        '206':
+          $ref: '#/components/responses/AnyFile206'
+        '304':
+          description: Not Modified
+        '404':
+          description: 文件不存在
+          content:
+            text/html:
+              schema:
+                type: string
+        '416':
+          description: Range Not Satisfiable
+    head:
+      tags: [Static]
+      summary: 获取图片静态资源元信息（无 body）
+      parameters:
+        - $ref: '#/components/parameters/FilenamePath'
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          description: OK（无 body）
+        '206':
+          description: Partial Content（无 body）
+        '304':
+          description: Not Modified
+        '404':
+          description: 文件不存在
+        '416':
+          description: Range Not Satisfiable
+
+  /video/{filename}:
+    get:
+      tags: [Static]
+      summary: 获取视频静态资源
+      parameters:
+        - $ref: '#/components/parameters/FilenamePath'
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          $ref: '#/components/responses/AnyFile200'
+        '206':
+          $ref: '#/components/responses/AnyFile206'
+        '304':
+          description: Not Modified
+        '404':
+          description: 文件不存在
+          content:
+            text/html:
+              schema:
+                type: string
+        '416':
+          description: Range Not Satisfiable
+    head:
+      tags: [Static]
+      summary: 获取视频静态资源元信息（无 body）
+      parameters:
+        - $ref: '#/components/parameters/FilenamePath'
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          description: OK（无 body）
+        '206':
+          description: Partial Content（无 body）
+        '304':
+          description: Not Modified
+        '404':
+          description: 文件不存在
+        '416':
+          description: Range Not Satisfiable
+
+  /uploads/{filename}:
+    get:
+      tags: [Static]
+      summary: 获取 uploads 静态资源
+      parameters:
+        - $ref: '#/components/parameters/FilenamePath'
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          $ref: '#/components/responses/AnyFile200'
+        '206':
+          $ref: '#/components/responses/AnyFile206'
+        '304':
+          description: Not Modified
+        '404':
+          description: 文件不存在
+          content:
+            text/html:
+              schema:
+                type: string
+        '416':
+          description: Range Not Satisfiable
+    head:
+      tags: [Static]
+      summary: 获取 uploads 静态资源元信息（无 body）
+      parameters:
+        - $ref: '#/components/parameters/FilenamePath'
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          description: OK（无 body）
+        '206':
+          description: Partial Content（无 body）
+        '304':
+          description: Not Modified
+        '404':
+          description: 文件不存在
+        '416':
+          description: Range Not Satisfiable
+
+  /assets/{filename}:
+    get:
+      tags: [Static]
+      summary: 获取构建静态资源（Vite assets）
+      parameters:
+        - $ref: '#/components/parameters/FilenamePath'
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          $ref: '#/components/responses/AnyFile200'
+        '206':
+          $ref: '#/components/responses/AnyFile206'
+        '304':
+          description: Not Modified
+        '404':
+          description: 文件不存在
+          content:
+            text/html:
+              schema:
+                type: string
+        '416':
+          description: Range Not Satisfiable
+    head:
+      tags: [Static]
+      summary: 获取构建静态资源元信息（无 body）
+      parameters:
+        - $ref: '#/components/parameters/FilenamePath'
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          description: OK（无 body）
+        '206':
+          description: Partial Content（无 body）
+        '304':
+          description: Not Modified
+        '404':
+          description: 文件不存在
+        '416':
+          description: Range Not Satisfiable
+
+  /favicon.ico:
+    get:
+      tags: [Misc]
+      summary: favicon（无内容）
+      responses:
+        '204':
+          description: No Content
+
+  /favicon.svg:
+    get:
+      tags: [Static]
+      summary: 静态 favicon（SVG）
+      parameters:
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          $ref: '#/components/responses/AnyFile200'
+        '206':
+          $ref: '#/components/responses/AnyFile206'
+        '304':
+          description: Not Modified
+        '404':
+          description: 文件不存在
+          content:
+            text/html:
+              schema:
+                type: string
+        '416':
+          description: Range Not Satisfiable
+    head:
+      tags: [Static]
+      summary: 静态 favicon（SVG，元信息，无 body）
+      parameters:
+        - $ref: '#/components/parameters/RangeHeader'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+        - $ref: '#/components/parameters/IfModifiedSinceHeader'
+        - $ref: '#/components/parameters/RequestMd5Header'
+        - $ref: '#/components/parameters/Md5Query'
+      responses:
+        '200':
+          description: OK（无 body）
+        '206':
+          description: Partial Content（无 body）
+        '304':
+          description: Not Modified
+        '404':
+          description: 文件不存在
+        '416':
+          description: Range Not Satisfiable
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    FolderQuery:
+      name: folder
+      in: query
+      required: false
+      description: 目录（默认 images）
+      schema:
+        $ref: '#/components/schemas/Folder'
+      example: images
+
+    FolderPathDownload:
+      name: folder
+      in: path
+      required: true
+      description: 下载目录
+      schema:
+        $ref: '#/components/schemas/Folder'
+      example: images
+
+    UploadIdPath:
+      name: uploadId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+      example: 1772607242572-327b23c6
+
+    PartNoPath:
+      name: partNo
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 0
+      example: 0
+
+    FilenamePath:
+      name: filename
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+      example: sample.jpg
+
+    RangeHeader:
+      name: Range
+      in: header
+      required: false
+      description: Range 请求（断点续传）
+      schema:
+        type: string
+        example: bytes=0-1023
+
+    IfNoneMatchHeader:
+      name: If-None-Match
+      in: header
+      required: false
+      schema:
+        type: string
+
+    IfModifiedSinceHeader:
+      name: If-Modified-Since
+      in: header
+      required: false
+      schema:
+        type: string
+        example: Wed, 21 Oct 2015 07:28:00 GMT
+
+    RequestMd5Header:
+      name: X-Request-MD5
+      in: header
+      required: false
+      description: 请求在响应头附带 X-File-MD5（值为 1 时开启）
+      schema:
+        type: string
+        example: '1'
+
+    Md5Query:
+      name: md5
+      in: query
+      required: false
+      description: md5=1 时响应头附带 X-File-MD5
+      schema:
+        type: string
+        example: '1'
+
+  responses:
+    HtmlOk:
+      description: HTML
+      content:
+        text/html:
+          schema:
+            type: string
+    HtmlNotFound:
+      description: 页面不存在
+      content:
+        text/html:
+          schema:
+            type: string
+
+    JsonError400:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            bad_request:
+              value:
+                success: false
+                code: HTTP_400
+                message: 非法参数
+                timestamp: 2026-03-04T00:00:00Z
+                details:
+                  http_status: 400
+                error:
+                  code: HTTP_400
+                  message: 非法参数
+                  details:
+                    http_status: 400
+                  timestamp: 2026-03-04T00:00:00Z
+
+    JsonError500:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    BinaryFile200:
+      description: 文件流（attachment）
+      headers:
+        Content-Disposition:
+          schema:
+            type: string
+        Content-Length:
+          schema:
+            type: integer
+            format: int64
+        Accept-Ranges:
+          schema:
+            type: string
+        ETag:
+          schema:
+            type: string
+        Last-Modified:
+          schema:
+            type: string
+        X-File-MD5:
+          schema:
+            type: string
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+
+    BinaryFile206:
+      description: 文件流（Range 部分内容）
+      headers:
+        Content-Range:
+          schema:
+            type: string
+        Content-Length:
+          schema:
+            type: integer
+            format: int64
+        Accept-Ranges:
+          schema:
+            type: string
+        ETag:
+          schema:
+            type: string
+        Last-Modified:
+          schema:
+            type: string
+        X-File-MD5:
+          schema:
+            type: string
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+
+    AnyFile200:
+      description: 文件流
+      headers:
+        Content-Length:
+          schema:
+            type: integer
+            format: int64
+        Accept-Ranges:
+          schema:
+            type: string
+        ETag:
+          schema:
+            type: string
+        Last-Modified:
+          schema:
+            type: string
+        X-File-MD5:
+          schema:
+            type: string
+      content:
+        '*/*':
+          schema:
+            type: string
+            format: binary
+
+    AnyFile206:
+      description: 文件流（Range 部分内容）
+      headers:
+        Content-Range:
+          schema:
+            type: string
+        Content-Length:
+          schema:
+            type: integer
+            format: int64
+        Accept-Ranges:
+          schema:
+            type: string
+        ETag:
+          schema:
+            type: string
+        Last-Modified:
+          schema:
+            type: string
+        X-File-MD5:
+          schema:
+            type: string
+      content:
+        '*/*':
+          schema:
+            type: string
+            format: binary
+
+  schemas:
+    Folder:
+      type: string
+      enum: [images, video, uploads]
+
+    SuccessResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 操作成功
+
+    ErrorDetails:
+      type: object
+      required: [http_status]
+      properties:
+        http_status:
+          type: integer
+          example: 400
+
+    ErrorInner:
+      type: object
+      required: [code, message, details, timestamp]
+      properties:
+        code:
+          type: string
+          example: HTTP_400
+        message:
+          type: string
+          example: 非法参数
+        details:
+          $ref: '#/components/schemas/ErrorDetails'
+        timestamp:
+          type: string
+          format: date-time
+          example: 2026-03-04T00:00:00Z
+
+    ErrorResponse:
+      type: object
+      required: [success, code, message, timestamp, details, error]
+      properties:
+        success:
+          type: boolean
+          example: false
+        code:
+          type: string
+          example: HTTP_400
+        message:
+          type: string
+          example: 非法参数
+        timestamp:
+          type: string
+          format: date-time
+          example: 2026-03-04T00:00:00Z
+        details:
+          $ref: '#/components/schemas/ErrorDetails'
+        error:
+          $ref: '#/components/schemas/ErrorInner'
+
+    RegisterRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          description: 3-20 位，字母开头，仅字母数字下划线
+          minLength: 3
+          maxLength: 20
+          example: alice_01
+        password:
+          type: string
+          description: 至少 6 位
+          minLength: 6
+          example: "123456"
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          example: alice_01
+        password:
+          type: string
+          minLength: 1
+          example: "123456"
+
+    LoginData:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: JWT Token
+
+    LoginResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 登录成功
+        data:
+          $ref: '#/components/schemas/LoginData'
+
+    FileItem:
+      type: object
+      required: [folder, name, size, mimeType, updatedAt, url, downloadUrl]
+      properties:
+        folder:
+          $ref: '#/components/schemas/Folder'
+        name:
+          type: string
+          example: sample.jpg
+        size:
+          type: integer
+          format: int64
+          example: 12345
+        mimeType:
+          type: string
+          example: image/jpeg
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-03-04T00:00:00Z
+        url:
+          type: string
+          example: /images/sample.jpg
+        downloadUrl:
+          type: string
+          example: /download/images/sample.jpg
+
+    FileListData:
+      type: object
+      required: [files]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileItem'
+
+    FileListResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 操作成功
+        data:
+          $ref: '#/components/schemas/FileListData'
+
+    FilePreviewData:
+      allOf:
+        - $ref: '#/components/schemas/FileItem'
+        - type: object
+          required: [supportRange]
+          properties:
+            supportRange:
+              type: boolean
+              example: true
+
+    FilePreviewResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 操作成功
+        data:
+          $ref: '#/components/schemas/FilePreviewData'
+
+    UploadInitRequest:
+      type: object
+      required: [fileName, fileSize]
+      properties:
+        fileName:
+          type: string
+          description: 文件名（禁止 / \\ .. \0，且需符合 folder 对应的扩展名白名单）
+          example: big.mp4
+        folder:
+          $ref: '#/components/schemas/Folder'
+        fileSize:
+          type: integer
+          format: int64
+          description: 文件大小（bytes），上限 200MB
+          example: 10485760
+        chunkSize:
+          type: integer
+          format: int32
+          description: 分片大小（bytes），上限 8MB；非法时回落 1MB
+          example: 1048576
+        uploadId:
+          type: string
+          description: 续传时传回之前的 uploadId
+          example: 1772607242572-327b23c6
+
+    UploadInitData:
+      type: object
+      required: [uploadId, chunkSize, uploadedParts]
+      properties:
+        uploadId:
+          type: string
+        chunkSize:
+          type: integer
+          format: int32
+        uploadedParts:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+
+    UploadInitResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 操作成功
+        data:
+          $ref: '#/components/schemas/UploadInitData'
+
+    UploadPartData:
+      type: object
+      required: [partNo, size]
+      properties:
+        partNo:
+          type: integer
+          minimum: 0
+          example: 0
+        size:
+          type: integer
+          format: int64
+          example: 1048576
+
+    UploadPartResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 操作成功
+        data:
+          $ref: '#/components/schemas/UploadPartData'
+
+    UploadCompleteData:
+      type: object
+      required: [folder, name, url, downloadUrl]
+      properties:
+        folder:
+          $ref: '#/components/schemas/Folder'
+        name:
+          type: string
+          example: big.mp4
+        url:
+          type: string
+          example: /video/big.mp4
+        downloadUrl:
+          type: string
+          example: /download/video/big.mp4
+
+    UploadCompleteResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 操作成功
+        data:
+          $ref: '#/components/schemas/UploadCompleteData'

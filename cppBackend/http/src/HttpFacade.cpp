@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <chrono>
 
 #include "ssl/SslFactory.h"
 #include "factory/HttpParseFactory.h"
@@ -9,6 +10,7 @@
 #include "router/Router.h"
 #include "core/HttpRequest.h"
 #include "core/HttpResponse.h"
+#include "error/HttpErrorUtil.h"
 
 // 构造函数：初始化服务器组件
 HttpFacade::HttpFacade()
@@ -17,12 +19,34 @@ HttpFacade::HttpFacade()
     , handler_chain_(std::make_shared<HandlerChain>()) {
 }
 
+void HttpFacade::SetParseTimeoutMs(int timeout_ms) {
+  parse_timeout_ms_ = timeout_ms;
+}
+
 // 核心处理接口：统一的HTTP数据处理入口
 HttpServerResult HttpFacade::Process(const std::string& raw_data,
                                    std::unique_ptr<IHttpMessage>& out_message,
                                    HttpResponse& out_response) {
+  HttpError ignored;
+  return Process(raw_data, out_message, out_response, ignored);
+}
+
+HttpServerResult HttpFacade::Process(const std::string& raw_data,
+                                   std::unique_ptr<IHttpMessage>& out_message,
+                                   HttpResponse& out_response,
+                                   HttpError& out_error) {
+    has_error_ = false;
+    last_error_ = HttpError{};
+
     // 检查输入数据是否为空
     if (raw_data.empty()) {
+        last_error_.code = HttpErrc::PARSE_EMPTY_INPUT;
+        last_error_.status = HttpStatusCode::BAD_REQUEST;
+        last_error_.message = "Bad Request";
+        last_error_.ctx.stage = HttpErrorStage::PARSING;
+        last_error_.ctx.detail = "empty input";
+        has_error_ = true;
+        out_error = last_error_;
         return HttpServerResult::PARSE_FAILED;
     }
     
@@ -31,33 +55,53 @@ HttpServerResult HttpFacade::Process(const std::string& raw_data,
     // 1. SSL处理阶段
     HttpServerResult ssl_result = ProcessSsl(raw_data, processed_data);
     if (ssl_result != HttpServerResult::SUCCESS) {
+        if (ssl_result == HttpServerResult::SSL_HANDSHAKE_FAILED) {
+            last_error_.code = HttpErrc::SSL_HANDSHAKE_FAILED;
+            last_error_.status = HttpStatusCode::BAD_REQUEST;
+            last_error_.message = "SSL Handshake Failed";
+            last_error_.ctx.stage = HttpErrorStage::SSL;
+            last_error_.ctx.received_bytes = raw_data.size();
+            has_error_ = true;
+        }
+        out_error = last_error_;
         return ssl_result;
     }
 
     // 2. HTTP解析阶段
     HttpServerResult parse_result = ProcessParsing(processed_data, out_message);
     if (parse_result != HttpServerResult::SUCCESS || !out_message) {
+        out_error = last_error_;
         return parse_result;
     }
 
     // 3. 责任链验证阶段
     if (!handler_chain_) {
+        last_error_.code = HttpErrc::INTERNAL_ERROR;
+        last_error_.status = HttpStatusCode::INTERNAL_SERVER_ERROR;
+        last_error_.message = "Internal Server Error";
+        last_error_.ctx.stage = HttpErrorStage::VALIDATION;
+        last_error_.stack = CaptureStackTrace();
+        has_error_ = true;
+        out_error = last_error_;
         return HttpServerResult::VALIDATION_FAILED;
     }
     HttpServerResult validation_result = ProcessValidation(*out_message, out_response);
     if (validation_result != HttpServerResult::SUCCESS) {
+        out_error = last_error_;
         return validation_result;
     }
 
     // 4. 路由处理阶段
     HttpServerResult routing_result = ProcessRouting(*out_message, out_response);
     if (routing_result != HttpServerResult::SUCCESS) {
+        out_error = last_error_;
         return routing_result;
     }
 
     // 5. 通知观察者
     NotifyObservers(*out_message);
 
+    out_error = last_error_;
     return HttpServerResult::SUCCESS;
 }
 
@@ -126,6 +170,13 @@ HttpServerResult HttpFacade::ProcessParsing(std::string data,
         parser_ = HttpParseFactory::Create(data);
         if (!parser_) {
             NotifyHttpParse("HTTP解析失败", "无法创建HTTP解析器");
+            last_error_.code = HttpErrc::INTERNAL_ERROR;
+            last_error_.status = HttpStatusCode::INTERNAL_SERVER_ERROR;
+            last_error_.message = "Internal Server Error";
+            last_error_.ctx.stage = HttpErrorStage::PARSING;
+            last_error_.ctx.received_bytes = data.size();
+            last_error_.stack = CaptureStackTrace();
+            has_error_ = true;
             return HttpServerResult::PARSE_FAILED;
         }
         NotifyHttpParse("创建解析器成功", "已根据数据特征创建合适的解析器");
@@ -135,23 +186,85 @@ HttpServerResult HttpFacade::ProcessParsing(std::string data,
     int parse_result = parser_->Parse(data, message);
     if (parse_result == static_cast<int>(ParseResult::NEEDMOREDATA)) {
         NotifyHttpParse("HTTP解析需要更多数据", "等待更多数据完成解析");
+        if (!awaiting_more_data_) {
+            awaiting_more_data_ = true;
+            parse_wait_start_ = std::chrono::steady_clock::now();
+        } else if (parse_timeout_ms_ > 0) {
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - parse_wait_start_);
+            if (elapsed.count() > parse_timeout_ms_) {
+                last_error_.code = HttpErrc::PARSE_TIMEOUT;
+                last_error_.status = HttpStatusCode::REQUEST_TIMEOUT;
+                last_error_.message = "Request Timeout";
+                last_error_.ctx.stage = HttpErrorStage::PARSING;
+                last_error_.ctx.received_bytes = data.size();
+                last_error_.ctx.consumed_bytes = parser_->GetConsumeBytes();
+                last_error_.ctx.detail = "incomplete request";
+                has_error_ = true;
+                parser_->Reset();
+                awaiting_more_data_ = false;
+                return HttpServerResult::REQUEST_TIMEOUT;
+            }
+        }
         return HttpServerResult::NEED_MORE_DATA;
     }
     if (parse_result == static_cast<int>(ParseResult::UNSUPPORTEDVERSION)) {
         NotifyHttpParse("HTTP版本不支持", "解析到不支持的HTTP版本");
+        last_error_.code = HttpErrc::PARSE_UNSUPPORTED_VERSION;
+        last_error_.status = HttpStatusCode::HTTP_VERSION_NOT_SUPPORTED;
+        last_error_.message = "HTTP Version Not Supported";
+        last_error_.ctx.stage = HttpErrorStage::PARSING;
+        last_error_.ctx.parser_result = parse_result;
+        last_error_.ctx.received_bytes = data.size();
+        last_error_.ctx.consumed_bytes = parser_->GetConsumeBytes();
+        has_error_ = true;
         parser_->Reset();
+        awaiting_more_data_ = false;
         return HttpServerResult::HTTP_VERSION_NOT_SUPPORTED;
     }
     if (parse_result == static_cast<int>(ParseResult::HEADERTOOLONG) ||
         parse_result == static_cast<int>(ParseResult::BODYTOOLONG)) {
         NotifyHttpParse("HTTP报文过大", "Header或Body超过限制");
+        if (parse_result == static_cast<int>(ParseResult::HEADERTOOLONG)) {
+            last_error_.code = HttpErrc::PARSE_HEADER_TOO_LARGE;
+            last_error_.status = HttpStatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE;
+            last_error_.message = "Request Header Fields Too Large";
+        } else {
+            last_error_.code = HttpErrc::PARSE_BODY_TOO_LARGE;
+            last_error_.status = HttpStatusCode::PAYLOAD_TOO_LARGE;
+            last_error_.message = "Payload Too Large";
+        }
+        last_error_.ctx.stage = HttpErrorStage::PARSING;
+        last_error_.ctx.parser_result = parse_result;
+        last_error_.ctx.received_bytes = data.size();
+        last_error_.ctx.consumed_bytes = parser_->GetConsumeBytes();
+        has_error_ = true;
         parser_->Reset();
+        awaiting_more_data_ = false;
         return HttpServerResult::PAYLOAD_TOO_LARGE;
     }
     if (parse_result != static_cast<int>(ParseResult::SUCCESS) || !message) {
         std::string error_detail = "解析返回码: " + std::to_string(parse_result);
         NotifyHttpParse("HTTP解析失败", error_detail);
+        if (parse_result == static_cast<int>(ParseResult::INVALIDSTARTLINE)) {
+            last_error_.code = HttpErrc::PARSE_INVALID_START_LINE;
+        } else if (parse_result == static_cast<int>(ParseResult::INVALIDHEADER)) {
+            last_error_.code = HttpErrc::PARSE_INVALID_HEADER;
+        } else if (parse_result == static_cast<int>(ParseResult::ERROR)) {
+            last_error_.code = HttpErrc::PARSE_INVALID_CHUNKED_ENCODING;
+        } else {
+            last_error_.code = HttpErrc::PARSE_FAILED;
+        }
+        last_error_.status = HttpStatusCode::BAD_REQUEST;
+        last_error_.message = "Bad Request";
+        last_error_.ctx.stage = HttpErrorStage::PARSING;
+        last_error_.ctx.parser_result = parse_result;
+        last_error_.ctx.received_bytes = data.size();
+        last_error_.ctx.consumed_bytes = parser_->GetConsumeBytes();
+        last_error_.ctx.detail = error_detail;
+        has_error_ = true;
         parser_->Reset();
+        awaiting_more_data_ = false;
         return HttpServerResult::PARSE_FAILED;
     }
 
@@ -165,6 +278,7 @@ HttpServerResult HttpFacade::ProcessParsing(std::string data,
         parse_detail = "响应消息解析成功";
     }
     NotifyHttpParse("HTTP解析成功", parse_detail);
+    awaiting_more_data_ = false;
 
     return HttpServerResult::SUCCESS;
 }
@@ -172,16 +286,23 @@ HttpServerResult HttpFacade::ProcessParsing(std::string data,
 // 责任链验证阶段：执行中间件和基础校验
 HttpServerResult HttpFacade::ProcessValidation(IHttpMessage& message, HttpResponse& response) {
     NotifyValidation("开始责任链验证", "执行中间件和基础校验");
-    
-    if (auto* request = dynamic_cast<HttpRequest*>(&message)) {
-        if (request->GetMethod() == HttpMethod::UNKNOWN) {
-            NotifyValidation("责任链验证失败", "未知HTTP方法");
+
+    if (!handler_chain_->Handle(message, last_error_)) {
+        if (auto* request = dynamic_cast<HttpRequest*>(&message)) {
+            last_error_.ctx.method = request->GetMethodString();
+            last_error_.ctx.url = request->GetUrl();
+            last_error_.ctx.path = request->GetPath();
+            last_error_.ctx.version = request->GetVersionStr();
+        }
+        has_error_ = true;
+        NotifyValidation("责任链验证失败", "某个中间件或验证器拒绝了请求");
+        if (last_error_.status == HttpStatusCode::NOT_IMPLEMENTED) {
             return HttpServerResult::NOT_IMPLEMENTED;
         }
-    }
-
-    if (!handler_chain_->Handle(message)) {
-        NotifyValidation("责任链验证失败", "某个中间件或验证器拒绝了请求");
+        if (last_error_.status == HttpStatusCode::PAYLOAD_TOO_LARGE ||
+            last_error_.status == HttpStatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE) {
+            return HttpServerResult::PAYLOAD_TOO_LARGE;
+        }
         return HttpServerResult::VALIDATION_FAILED;
     }
     
@@ -204,6 +325,15 @@ HttpServerResult HttpFacade::ProcessRouting(IHttpMessage& message, HttpResponse&
                 // 调用路由器处理请求
                 if (!router_->Handle(message, response)) {
                     NotifyRouting("路由处理失败", "路由器无法处理该请求");
+                    last_error_.code = HttpErrc::ROUTE_NOT_FOUND;
+                    last_error_.status = HttpStatusCode::NOT_FOUND;
+                    last_error_.message = "Not Found";
+                    last_error_.ctx.stage = HttpErrorStage::ROUTING;
+                    last_error_.ctx.method = request->GetMethodString();
+                    last_error_.ctx.url = request->GetUrl();
+                    last_error_.ctx.path = request->GetPath();
+                    last_error_.ctx.version = request->GetVersionStr();
+                    has_error_ = true;
                     return HttpServerResult::ROUTING_FAILED;
                 }
                 

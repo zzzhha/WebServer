@@ -42,7 +42,7 @@ public:
   void AddHandler(std::shared_ptr<IRequestHandler> handler);
 
   // 触发责任链
-  bool Handle(IHttpMessage& message) override;
+  bool Handle(IHttpMessage& message, HttpError& error) override;
 
 private:
   void AddDefaultHandlers();

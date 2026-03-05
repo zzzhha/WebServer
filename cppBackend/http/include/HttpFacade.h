@@ -1,10 +1,12 @@
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "core/IHttpMessage.h"
+#include "error/HttpError.h"
 #include "observer/IHttpObserver.h"
 
 // 前向声明必要的类
@@ -27,6 +29,7 @@ enum class HttpServerResult {
     HTTP_VERSION_NOT_SUPPORTED = 7,
     NOT_IMPLEMENTED = 8,
     PAYLOAD_TOO_LARGE = 9,
+    REQUEST_TIMEOUT = 10,
     UNKNOWN_ERROR = -1
 };
 
@@ -41,6 +44,16 @@ public:
   HttpServerResult Process(const std::string& raw_data,
                            std::unique_ptr<IHttpMessage>& out_message,
                            HttpResponse& out_response);
+
+  HttpServerResult Process(const std::string& raw_data,
+                           std::unique_ptr<IHttpMessage>& out_message,
+                           HttpResponse& out_response,
+                           HttpError& out_error);
+
+    void SetParseTimeoutMs(int timeout_ms);
+
+    const HttpError& GetLastError() const { return last_error_; }
+    bool HasLastError() const { return has_error_; }
 
     // 添加观察者（用于监听HTTP消息处理过程）
     void AddObserver(std::shared_ptr<IHttpObserver> observer);
@@ -107,6 +120,10 @@ private:
     // HTTP解析相关
     std::shared_ptr<IHttpParser> parser_;
 
+    int parse_timeout_ms_{5000};
+    bool awaiting_more_data_{false};
+    std::chrono::steady_clock::time_point parse_wait_start_{};
+
     // 责任链相关
     std::shared_ptr<HandlerChain> handler_chain_;
 
@@ -115,4 +132,7 @@ private:
 
     // 观察者列表
     std::vector<std::shared_ptr<IHttpObserver>> observers_;
+
+    HttpError last_error_{};
+    bool has_error_{false};
 };

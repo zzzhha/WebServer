@@ -1,0 +1,4 @@
+fileName=test.txt
+fileSize=11
+chunkSize=5
+folder=uploads

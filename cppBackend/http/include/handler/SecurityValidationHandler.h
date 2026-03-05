@@ -29,7 +29,7 @@ public:
   );
 
   // 处理入口：执行所有安全检查
-  bool Handle(IHttpMessage& message) override;
+  bool Handle(IHttpMessage& message, HttpError& error) override;
 
 private:
   // 检查HTTP方法是否在白名单中

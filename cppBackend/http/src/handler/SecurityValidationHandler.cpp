@@ -2,6 +2,7 @@
 
 #include "core/HttpRequest.h"
 #include "core/IHttpMessage.h"
+#include "error/HttpError.h"
 #include <algorithm>
 #include <cctype>
 #include <string>
@@ -28,9 +29,9 @@ SecurityValidationHandler::SecurityValidationHandler(
   };
 }
 
-bool SecurityValidationHandler::Handle(IHttpMessage& message) {
+bool SecurityValidationHandler::Handle(IHttpMessage& message, HttpError& error) {
   if (!message.IsRequest()) {
-    return CallNext(message);
+    return CallNext(message, error);
   }
 
   auto* request = dynamic_cast<HttpRequest*>(&message);
@@ -40,35 +41,85 @@ bool SecurityValidationHandler::Handle(IHttpMessage& message) {
 
   // 1. 检查HTTP方法是否在白名单中
   if (!IsMethodAllowed(request->GetMethod())) {
+    error.code = HttpErrc::VALIDATION_METHOD_NOT_ALLOWED;
+    error.status = HttpStatusCode::METHOD_NOT_ALLOWED;
+    error.message = "Method Not Allowed";
+    error.ctx.stage = HttpErrorStage::VALIDATION;
+    error.ctx.method = request->GetMethodString();
     return false;
   }
 
   // 2. 检查请求体大小
   if (!CheckBodySize(message)) {
+    error.code = HttpErrc::VALIDATION_BODY_TOO_LARGE;
+    error.status = HttpStatusCode::PAYLOAD_TOO_LARGE;
+    error.message = "Payload Too Large";
+    error.ctx.stage = HttpErrorStage::VALIDATION;
     return false;
   }
 
   // 3. 检查URL长度
   if (!CheckUrlLength(*request)) {
+    error.code = HttpErrc::VALIDATION_URL_TOO_LONG;
+    error.status = HttpStatusCode::URI_TOO_LONG;
+    error.message = "URI Too Long";
+    error.ctx.stage = HttpErrorStage::VALIDATION;
+    error.ctx.url = request->GetUrl();
     return false;
   }
 
   // 4. 检查路径安全性（防止路径遍历攻击）
   if (!CheckPathSecurity(request->GetPath())) {
+    error.code = HttpErrc::VALIDATION_PATH_UNSAFE;
+    error.status = HttpStatusCode::FORBIDDEN;
+    error.message = "Forbidden";
+    error.ctx.stage = HttpErrorStage::VALIDATION;
+    error.ctx.path = request->GetPath();
     return false;
   }
 
   // 5. 检查Header数量和大小
+  const auto& headers = message.GetAllHeaders();
+  if (headers.size() > maxHeaderCount_) {
+    error.code = HttpErrc::VALIDATION_HEADERS_TOO_MANY;
+    error.status = HttpStatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE;
+    error.message = "Request Header Fields Too Large";
+    error.ctx.stage = HttpErrorStage::VALIDATION;
+    error.ctx.detail = "too many headers";
+    return false;
+  }
+  for (const auto& header : headers) {
+    if (header.second.length() > maxHeaderValueLength_) {
+      error.code = HttpErrc::VALIDATION_HEADER_VALUE_TOO_LARGE;
+      error.status = HttpStatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE;
+      error.message = "Request Header Fields Too Large";
+      error.ctx.stage = HttpErrorStage::VALIDATION;
+      error.ctx.header_key = header.first;
+      error.ctx.detail = "header value too large";
+      return false;
+    }
+  }
   if (!CheckHeaders(message)) {
+    error.code = HttpErrc::VALIDATION_FAILED;
+    error.status = HttpStatusCode::BAD_REQUEST;
+    error.message = "Bad Request";
+    error.ctx.stage = HttpErrorStage::VALIDATION;
+    error.ctx.detail = "header validation failed";
     return false;
   }
 
   // 6. 检查可疑字符和模式
   if (!CheckSuspiciousPatterns(*request)) {
+    error.code = HttpErrc::VALIDATION_SUSPICIOUS_PATTERN;
+    error.status = HttpStatusCode::BAD_REQUEST;
+    error.message = "Bad Request";
+    error.ctx.stage = HttpErrorStage::VALIDATION;
+    error.ctx.path = request->GetPath();
+    error.ctx.url = request->GetUrl();
     return false;
   }
 
-  return CallNext(message);
+  return CallNext(message, error);
 }
 
 bool SecurityValidationHandler::IsMethodAllowed(HttpMethod method) const {
@@ -191,4 +242,3 @@ bool SecurityValidationHandler::CheckSuspiciousPatterns(const HttpRequest& reque
 
   return true;
 }
-

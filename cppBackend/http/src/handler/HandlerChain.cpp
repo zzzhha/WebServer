@@ -1,6 +1,7 @@
 #include "handler/HandlerChain.h"
 #include "handler/ProtocolValidationHandler.h"
 #include "handler/SecurityValidationHandler.h"
+#include "error/HttpError.h"
 
 #include <memory>
 #include <utility>
@@ -19,9 +20,9 @@ void HandlerChain::AddHandler(std::shared_ptr<IRequestHandler> handler) {
   handlers_.push_back(std::move(handler));
 }
 
-bool HandlerChain::Handle(IHttpMessage& message) {
+bool HandlerChain::Handle(IHttpMessage& message, HttpError& error) {
   if (!head_) return true;
-  return head_->Handle(message);
+  return head_->Handle(message, error);
 }
 
 void HandlerChain::AddDefaultHandlers() {
@@ -31,4 +32,3 @@ void HandlerChain::AddDefaultHandlers() {
   // 2. 安全检查：防止常见Web攻击（DoS、路径遍历、注入攻击等）
   AddHandler(std::make_shared<SecurityValidationHandler>());
 }
-

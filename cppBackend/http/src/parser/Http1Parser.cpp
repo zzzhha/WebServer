@@ -325,12 +325,12 @@ ParseResult Http1Parser::ParseChunkSize(std::string_view line) {
   while (idx < line.size() && std::isxdigit(static_cast<unsigned char>(line[idx]))) {
     ++idx;
   }
-  if (idx == 0) return ParseResult::INVALIDHEADER;
+  if (idx == 0) return ParseResult::ERROR;
 
   std::string_view hexPart = line.substr(0, idx);
   unsigned long size = 0;
   auto res = std::from_chars(hexPart.data(), hexPart.data() + hexPart.size(), size, 16);
-  if (res.ec != std::errc()) return ParseResult::INVALIDHEADER;
+  if (res.ec != std::errc()) return ParseResult::ERROR;
 
   chunkSize_ = static_cast<size_t>(size);
   bodyReceived_ = 0;

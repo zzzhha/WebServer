@@ -44,6 +44,10 @@ set(ROUTER_SOURCES
   router/Router.cpp
 )
 
+set(ERROR_SOURCES
+  error/HttpErrorUtil.cpp
+)
+
 set(SERVER_SOURCES
   HttpFacade.cpp
 )
@@ -58,6 +62,7 @@ set(HTTP_SOURCES
   ${STRATEGY_SOURCES}
   ${SSL_SOURCES}
   ${ROUTER_SOURCES}
+  ${ERROR_SOURCES}
   ${SERVER_SOURCES}
 )
 
@@ -79,5 +84,4 @@ target_include_directories(http PUBLIC
 
 # 链接 OpenSSL 库到静态库
 target_link_libraries(http PUBLIC OpenSSL::SSL OpenSSL::Crypto)
-
 

@@ -1,10 +1,15 @@
 #include"HttpServer.h"
 #include"../mysql/sqlconnpool.h"
 #include"../http/include/handler/AppHandlers.h"
+#include"../http/include/factory/ResponseFactory.h"
+#include"../http/include/error/HttpErrorUtil.h"
+#include"../http/include/util/HttpHeadersUtil.h"
 #include"../http/include/router/Router.h"
 #include"../services/include/AuthService.h"
 #include"../services/include/DownloadService.h"
 #include"../services/include/StaticFileService.h"
+#include"../services/include/FileApiService.h"
+#include"../services/include/UploadService.h"
 #include"../views/include/IndexPageHandler.h"
 #include"../views/include/WelcomePageHandler.h"
 #include"../views/include/LoginPageHandler.h"
@@ -17,6 +22,7 @@
 #include<cstring>
 #include<fcntl.h>
 #include<sstream>
+#include<atomic>
 
 HttpServer::HttpServer(const std::string &ip,uint16_t port,int timeoutS,bool OptLinger,
                        int sqlPort,const char*sqlUser,const char*sqlPwd,const char*dbName,
@@ -113,7 +119,11 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
   
   // 使用HttpFacade处理HTTP请求
   std::unique_ptr<IHttpMessage> message;
-  HttpServerResult result = facade->Process(request_data, message, response);
+  static std::atomic<uint64_t> request_seq{0};
+  const std::string request_id = std::to_string(conn->fd()) + "-" + std::to_string(request_seq.fetch_add(1, std::memory_order_relaxed));
+
+  HttpError err;
+  HttpServerResult result = facade->Process(request_data, message, response, err);
   
   if (result == HttpServerResult::SUCCESS && message) {
     // 解析成功，消费已解析的字节数
@@ -150,6 +160,8 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
     
     // 处理请求并生成响应
     ProcessRequest(request, response);
+    ApplyCorsHeaders(response, request);
+    ApplyCommonResponseHeaders(response, request_id);
     
     // 设置响应头
     if (keep_alive) {
@@ -214,49 +226,39 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
     LOGINFO("HTTP请求数据不完整，等待更多数据");
   } else {
     // 处理错误
-    LOGERROR("HTTP请求处理失败，错误码: " + std::to_string(static_cast<int>(result)));
-    
-    // 根据错误码生成相应的错误响应
-    HttpResponse error_response;
-    error_response.SetHeader("Content-Type", "text/plain");
-    error_response.SetHeader("Connection", "close");
-    
-    switch (result) {
-      case HttpServerResult::SSL_HANDSHAKE_FAILED:
-        error_response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
-        error_response.SetBody("SSL Handshake Failed");
-        break;
-      case HttpServerResult::PARSE_FAILED:
-        error_response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
-        error_response.SetBody("Bad Request");
-        break;
-      case HttpServerResult::HTTP_VERSION_NOT_SUPPORTED:
-        error_response.SetStatusCode(HttpStatusCode::HTTP_VERSION_NOT_SUPPORTED);
-        error_response.SetBody("HTTP Version Not Supported");
-        break;
-      case HttpServerResult::NOT_IMPLEMENTED:
-        error_response.SetStatusCode(HttpStatusCode::NOT_IMPLEMENTED);
-        error_response.SetBody("Not Implemented");
-        break;
-      case HttpServerResult::PAYLOAD_TOO_LARGE:
-        error_response.SetStatusCode(HttpStatusCode::PAYLOAD_TOO_LARGE);
-        error_response.SetBody("Payload Too Large");
-        break;
-      case HttpServerResult::VALIDATION_FAILED:
-        error_response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
-        error_response.SetBody("Validation Failed");
-        break;
-      case HttpServerResult::ROUTING_FAILED:
-        error_response.SetStatusCode(HttpStatusCode::NOT_FOUND);
-        error_response.SetBody("Not Found");
-        break;
-      default:
-        error_response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
-        error_response.SetBody("Bad Request");
-        break;
+    if (err.IsOk()) {
+      err.code = HttpErrc::INTERNAL_ERROR;
+      err.status = HttpStatusCode::INTERNAL_SERVER_ERROR;
+      err.message = "Internal Server Error";
+      err.ctx.stage = HttpErrorStage::UNKNOWN;
+      err.ctx.detail = "missing error details";
     }
-    
-    std::string error_data = error_response.Serialize();
+
+    LOGERROR("HTTP请求处理失败 request_id=" + request_id +
+             " fd=" + std::to_string(conn->fd()) +
+             " ip=" + conn->ip() +
+             " port=" + std::to_string(conn->port()) +
+             " http_status=" + std::to_string(static_cast<int>(err.status)) +
+             " code=" + ToString(err.code) +
+             " stage=" + ToString(err.ctx.stage) +
+             (err.ctx.detail.empty() ? "" : " detail=" + err.ctx.detail));
+    if (err.IsServerError() && !err.stack.empty()) {
+      std::string stack = err.stack;
+      if (stack.size() > 2048) stack.resize(2048);
+      for (char& c : stack) {
+        if (c == '\n') c = ' ';
+        if (c == '\r') c = ' ';
+      }
+      LOGERROR("HTTP错误堆栈 request_id=" + request_id + " stack=" + stack);
+    }
+
+    auto error_resp = ResponseFactory::CreateHttpError(err, request_id, true);
+    if (auto* req = dynamic_cast<HttpRequest*>(message.get())) {
+      ApplyCorsHeaders(*error_resp, req);
+    }
+    ApplyCommonResponseHeaders(*error_resp, request_id);
+    error_resp->SetHeader("Connection", "close");
+    std::string error_data = error_resp->Serialize();
     outputbuffer.append(error_data.c_str(), error_data.size());
     conn->setCloseOnSendComplete(true);
     conn->send();
@@ -359,9 +361,68 @@ void HttpServer::SetupRoutes(Router& router) {
     
     return true;
   });
+
+  router.Get("/api/files", [this](IHttpMessage& message, HttpResponse& response, const RouteParams&) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return FileApiService::HandleListFiles(request, response, static_path_);
+  });
+
+  router.Get("/api/files/preview", [this](IHttpMessage& message, HttpResponse& response, const RouteParams&) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return FileApiService::HandlePreview(request, response, static_path_);
+  });
+
+  router.Post("/api/uploads/init", [this](IHttpMessage& message, HttpResponse& response, const RouteParams&) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return UploadService::HandleInit(request, response, static_path_);
+  });
+
+  router.Put("/api/uploads/:uploadId/parts/:partNo", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return UploadService::HandleUploadPart(request, response, params, static_path_);
+  });
+
+  router.Post("/api/uploads/:uploadId/complete", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return UploadService::HandleComplete(request, response, params, static_path_);
+  });
   router.Get("/favicon.ico", [](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
     response.SetStatusCode(HttpStatusCode::NO_CONTENT);
     response.SetHeader("Content-Type", "image/x-icon");
+    return true;
+  });
+  router.Get("/favicon.svg", [this](IHttpMessage& message, HttpResponse& response, const RouteParams&) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return StaticFileService::HandleStaticFile(request, response, static_path_);
+  });
+  router.Head("/favicon.svg", [this](IHttpMessage& message, HttpResponse& response, const RouteParams&) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return StaticFileService::HandleStaticFile(request, response, static_path_);
+  });
+  router.Get("/assets/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams&) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return StaticFileService::HandleStaticFile(request, response, static_path_);
+  });
+  router.Head("/assets/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams&) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return StaticFileService::HandleStaticFile(request, response, static_path_);
+  });
+
+  router.Options("/*", [](IHttpMessage& message, HttpResponse& response, const RouteParams&) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    response.SetStatusCode(HttpStatusCode::NO_CONTENT);
+    response.SetHeader("Content-Type", "text/plain; charset=utf-8");
+    ApplyCorsHeaders(response, request);
     return true;
   });
   router.Get("/download/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
@@ -398,6 +459,17 @@ void HttpServer::SetupRoutes(Router& router) {
     return StaticFileService::HandleStaticFile(request, response, static_path_);
   });
   router.Head("/video/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return StaticFileService::HandleStaticFile(request, response, static_path_);
+  });
+
+  router.Get("/uploads/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return StaticFileService::HandleStaticFile(request, response, static_path_);
+  });
+  router.Head("/uploads/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
     auto* request = dynamic_cast<HttpRequest*>(&message);
     if (!request) return false;
     return StaticFileService::HandleStaticFile(request, response, static_path_);

@@ -455,6 +455,15 @@ RouteMatchInfo Router::MatchRoute(HttpRequest& request) {
       matchedHandler = methodIt->second.first; // 获取静态路由的 handler
       // 静态路由没有路径参数和通配符，只需提取查询参数
       ExtractQueryParams(request, matchedParams);
+    } else {
+      RouteResult dyn = rootNode_->MatchRoute(method, path);
+      if (dyn.IsSuccess()) {
+        pathMatched = dyn.pathMatched;
+        allowedMethods = std::move(dyn.allowedMethods);
+        matchedHandler = dyn.handler;
+        matchedParams = std::move(dyn.params);
+        ExtractQueryParams(request, matchedParams);
+      }
     }
   } else {
     // 静态路由未找到，尝试Trie树匹配（支持参数和通配符）
@@ -695,4 +704,3 @@ std::string Router::HttpMethodToString(HttpMethod method) {
     default: return "UNKNOWN";
   }
 }
-

@@ -19,6 +19,5 @@ public:
   ~ProtocolValidationHandler() override = default;
 
   // 处理入口：执行HTTP协议基本规则验证
-  bool Handle(IHttpMessage& message) override;
+  bool Handle(IHttpMessage& message, HttpError& error) override;
 };
-

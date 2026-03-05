@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/HttpResponse.h"
+#include "error/HttpError.h"
 #include <string>
 #include <optional>
 #include <map>
@@ -36,6 +37,12 @@ public:
         HttpStatusCode code,
         const std::string& message,
         const std::map<std::string, std::string>& details
+    );
+
+    static std::shared_ptr<HttpResponse> CreateHttpError(
+        const HttpError& err,
+        const std::string& request_id,
+        bool include_context = false
     );
 
     // 文件下载响应

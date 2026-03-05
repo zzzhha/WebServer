@@ -1,7 +1,28 @@
 #include "builder/ResponseBuilder.h"
 #include "handler/AppHandlers.h"
+#include "error/HttpErrorUtil.h"
+#include <chrono>
+#include <cstdio>
+#include <ctime>
 #include <fstream>
 #include <sstream>
+
+static std::string NowIso8601Utc() {
+  using clock = std::chrono::system_clock;
+  auto now = clock::now();
+  std::time_t t = clock::to_time_t(now);
+  std::tm tm{};
+#if defined(_WIN32)
+  gmtime_s(&tm, &t);
+#else
+  gmtime_r(&t, &tm);
+#endif
+  char buf[32];
+  std::snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
+                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+                tm.tm_hour, tm.tm_min, tm.tm_sec);
+  return std::string(buf);
+}
 
 ResponseBuilder::ResponseBuilder() : response_(std::make_shared<HttpResponse>()) {}
 
@@ -105,9 +126,26 @@ ResponseBuilder& ResponseBuilder::Json(const std::string& jsonBody) {
 
 ResponseBuilder& ResponseBuilder::Error(HttpStatusCode code, const std::string& message) {
   response_->SetStatusCode(code);
+  const std::string ts = NowIso8601Utc();
+  const std::string c = "HTTP_" + std::to_string(static_cast<int>(code));
   std::ostringstream json;
-  json << "{\"success\":false,\"error\":{\"code\":" << static_cast<int>(code)
-       << ",\"message\":\"" << message << "\"}}";
+  json << "{";
+  json << "\"success\":false";
+  json << ",\"code\":\"" << JsonEscape(c) << "\"";
+  json << ",\"message\":\"" << JsonEscape(message) << "\"";
+  json << ",\"timestamp\":\"" << JsonEscape(ts) << "\"";
+  json << ",\"details\":{";
+  json << "\"http_status\":" << static_cast<int>(code);
+  json << "}";
+  json << ",\"error\":{";
+  json << "\"code\":\"" << JsonEscape(c) << "\"";
+  json << ",\"message\":\"" << JsonEscape(message) << "\"";
+  json << ",\"details\":{";
+  json << "\"http_status\":" << static_cast<int>(code);
+  json << "}";
+  json << ",\"timestamp\":\"" << JsonEscape(ts) << "\"";
+  json << "}";
+  json << "}";
   
   response_->SetHeader("Content-Type", "application/json; charset=utf-8");
   response_->SetBody(json.str());
@@ -116,9 +154,26 @@ ResponseBuilder& ResponseBuilder::Error(HttpStatusCode code, const std::string& 
 
 ResponseBuilder& ResponseBuilder::Error(int code, const std::string& message, const std::string& reason) {
   response_->SetStatusLine(response_->GetVersion(), code, reason.empty() ? "Error" : reason);
+  const std::string ts = NowIso8601Utc();
+  const std::string c = "HTTP_" + std::to_string(code);
   std::ostringstream json;
-  json << "{\"success\":false,\"error\":{\"code\":" << code
-       << ",\"message\":\"" << message << "\"}}";
+  json << "{";
+  json << "\"success\":false";
+  json << ",\"code\":\"" << JsonEscape(c) << "\"";
+  json << ",\"message\":\"" << JsonEscape(message) << "\"";
+  json << ",\"timestamp\":\"" << JsonEscape(ts) << "\"";
+  json << ",\"details\":{";
+  json << "\"http_status\":" << code;
+  json << "}";
+  json << ",\"error\":{";
+  json << "\"code\":\"" << JsonEscape(c) << "\"";
+  json << ",\"message\":\"" << JsonEscape(message) << "\"";
+  json << ",\"details\":{";
+  json << "\"http_status\":" << code;
+  json << "}";
+  json << ",\"timestamp\":\"" << JsonEscape(ts) << "\"";
+  json << "}";
+  json << "}";
   
   response_->SetHeader("Content-Type", "application/json; charset=utf-8");
   response_->SetBody(json.str());
