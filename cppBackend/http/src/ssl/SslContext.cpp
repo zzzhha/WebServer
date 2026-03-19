@@ -1,7 +1,7 @@
 #include "ssl/SslContext.h"
+#include "util/HttpStringUtil.h"
 
-#include <algorithm>
-#include <cctype>
+#include <string>
 
 namespace SslVersionUtil {
   std::string ToString(SslVersion version) {
@@ -26,15 +26,12 @@ namespace SslVersionUtil {
       return SslVersion::TLS_1_2;  // 默认值
     }
 
-    // 转换为小写以便比较
-    std::string lower_str = version_str;
-    std::transform(lower_str.begin(), lower_str.end(), lower_str.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-
-    // 移除可能的空格
-    lower_str.erase(std::remove_if(lower_str.begin(), lower_str.end(),
-                                   [](unsigned char c) { return std::isspace(c); }),
-                    lower_str.end());
+    std::string lower_str;
+    lower_str.reserve(version_str.size());
+    for (char c : version_str) {
+      if (c == ' ' || c == '\t' || c == '\r' || c == '\n') continue;
+      lower_str.push_back(ToLowerAscii(c));
+    }
 
     // 匹配版本字符串
     if (lower_str == "tlsv1.0" || lower_str == "tls1.0" || lower_str == "tls_1_0") {
@@ -58,13 +55,12 @@ namespace SslVersionUtil {
       return false;
     }
 
-    std::string lower_str = version_str;
-    std::transform(lower_str.begin(), lower_str.end(), lower_str.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-
-    lower_str.erase(std::remove_if(lower_str.begin(), lower_str.end(),
-                                   [](unsigned char c) { return std::isspace(c); }),
-                    lower_str.end());
+    std::string lower_str;
+    lower_str.reserve(version_str.size());
+    for (char c : version_str) {
+      if (c == ' ' || c == '\t' || c == '\r' || c == '\n') continue;
+      lower_str.push_back(ToLowerAscii(c));
+    }
 
     return (lower_str == "tlsv1.0" || lower_str == "tls1.0" || lower_str == "tls_1_0" ||
             lower_str == "tlsv1.1" || lower_str == "tls1.1" || lower_str == "tls_1_1" ||
@@ -81,4 +77,3 @@ void SslContext::SetSslVersion(const std::string& version_str) {
 std::string SslContext::GetSslVersionStr() const {
   return SslVersionUtil::ToString(ssl_version_);
 }
-

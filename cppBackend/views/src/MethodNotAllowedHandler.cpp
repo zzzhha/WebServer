@@ -6,16 +6,16 @@
 // 将HttpMethod转换为字符串
 static std::string MethodToString(HttpMethod method) {
     switch (method) {
-        case HttpMethod::GET: return "GET";
-        case HttpMethod::POST: return "POST";
-        case HttpMethod::PUT: return "PUT";
-        case HttpMethod::DELETE: return "DELETE";
-        case HttpMethod::PATCH: return "PATCH";
-        case HttpMethod::HEAD: return "HEAD";
-        case HttpMethod::OPTIONS: return "OPTIONS";
-        case HttpMethod::TRACE: return "TRACE";
-        case HttpMethod::CONNECT: return "CONNECT";
-        default: return "UNKNOWN";
+        case HttpMethod::GET: return "get";
+        case HttpMethod::POST: return "post";
+        case HttpMethod::PUT: return "put";
+        case HttpMethod::DELETE: return "delete";
+        case HttpMethod::PATCH: return "patch";
+        case HttpMethod::HEAD: return "head";
+        case HttpMethod::OPTIONS: return "options";
+        case HttpMethod::TRACE: return "trace";
+        case HttpMethod::CONNECT: return "connect";
+        default: return "unknown";
     }
 }
 
@@ -42,4 +42,3 @@ void MethodNotAllowedHandler::Handle(HttpRequest* request, HttpResponse& respons
     // 设置Allow响应头
     response.SetHeader("Allow", allow_header.str());
 }
-

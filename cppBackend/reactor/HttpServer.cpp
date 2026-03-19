@@ -4,8 +4,11 @@
 #include"../http/include/factory/ResponseFactory.h"
 #include"../http/include/error/HttpErrorUtil.h"
 #include"../http/include/util/HttpHeadersUtil.h"
+#include"../http/include/util/HttpStringUtil.h"
 #include"../http/include/router/Router.h"
+#include"TlsContext.h"
 #include"../services/include/AuthService.h"
+#include"../auth/jwt/JwtUtil.h"
 #include"../services/include/DownloadService.h"
 #include"../services/include/StaticFileService.h"
 #include"../services/include/FileApiService.h"
@@ -40,6 +43,7 @@ HttpServer::HttpServer(const std::string &ip,uint16_t port,int timeoutS,bool Opt
   
   router_ = std::make_shared<Router>();
   SetupRoutes(*router_);
+  tls_ctx_ = TlsContext::CreateFromEnv();
 }
 HttpServer::~HttpServer(){
 
@@ -60,6 +64,9 @@ void HttpServer::Stop(){
 void HttpServer::HandleNewConnection(spConnection conn){
   LOGINFO("new connection(fd="+std::to_string(conn->fd())+",ip="+conn->ip()+",port="+std::to_string(conn->port())+ ")ok.");
   if (conn) {
+    if (tls_ctx_) {
+      conn->SetTlsContext(tls_ctx_);
+    }
     auto facade = std::make_shared<HttpFacade>();
     if (router_) {
       facade->SetRouter(router_);
@@ -93,15 +100,13 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
     return;
   }
   
-  // 检查peek指针是否有效
-  const char* peek_ptr = inputbuffer.peek();
-  if (!peek_ptr) {
-    LOGERROR("缓冲区peek指针无效，无法处理消息");
-    return;
-  }
   
   // 将缓冲区数据转换为字符串供解析器使用
-  std::string request_data(peek_ptr, readable_bytes);
+  std::string request_data = inputbuffer.bufferToString();
+  if(request_data.empty()) {
+    LOGERROR("请求数据为空，无法处理");
+    return;
+  }
   
   std::shared_ptr<HttpFacade> facade;
   if (auto* ctx = conn->GetContext<std::shared_ptr<HttpFacade>>(); ctx && *ctx) {
@@ -154,7 +159,7 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
     auto connection_header = request->GetHeader("Connection");
     if (connection_header.has_value()) {
       std::string conn_value = connection_header.value();
-      std::transform(conn_value.begin(), conn_value.end(), conn_value.begin(), ::tolower);
+      LowerAsciiInPlace(conn_value);
       keep_alive = (conn_value == "keep-alive");
     }
     
@@ -293,7 +298,7 @@ void HttpServer::SetupRoutes(Router& router) {
     
     std::string path = request->GetPath();
     if (path == "/") path = "/index.html"; // 根路径映射到 index.html
-    
+    if (path.empty()) path = "/index.html";
     auto it = pageHandlers->find(path);
     if (it != pageHandlers->end() && it->second) {
       it->second->Handle(request, response);
@@ -314,7 +319,7 @@ void HttpServer::SetupRoutes(Router& router) {
     std::string body = request->GetBody();
     auto form_data = ParseFormData(body);
     
-    // 提取用户名和密码（使用更简洁的方式）
+    // 提取用户名和密码
     std::string username = form_data.count("username") > 0 ? form_data.at("username") : "";
     std::string password = form_data.count("password") > 0 ? form_data.at("password") : "";
     
@@ -341,7 +346,7 @@ void HttpServer::SetupRoutes(Router& router) {
     std::string body = request->GetBody();
     auto form_data = ParseFormData(body);
     
-    // 提取用户名和密码（使用更简洁的方式）
+    // 提取用户名和密码
     std::string username = form_data.count("username") > 0 ? form_data.at("username") : "";
     std::string password = form_data.count("password") > 0 ? form_data.at("password") : "";
     
@@ -351,12 +356,44 @@ void HttpServer::SetupRoutes(Router& router) {
     // 生成JSON响应
     if (login_result) {
       // 登录成功，获取token
-      std::string token = login_result.value();
-      // 在响应中包含token
-      std::string data = "{\"token\":\"" + token + "\"}";
+      std::string access_token = login_result.value().access_token;
+      std::string refresh_token = login_result.value().refresh_token;
+      // 在响应中包含token和refresh_token
+      std::string data = "{\"token\":\"" + access_token + "\",\"refresh_token\":\"" + refresh_token + "\"}";
       SetJsonSuccessResponseWithData(response, data, "登录成功");
     } else {
       SetJsonErrorResponse(response, HttpStatusCode::UNAUTHORIZED, "登录失败，用户名或密码错误");
+    }
+    
+    return true;
+  });
+
+  router.Post("/refresh-token", [](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request || request->GetMethod() != HttpMethod::POST) {
+      return false;
+    }
+    
+    // 解析POST表单数据
+    std::string body = request->GetBody();
+    auto form_data = ParseFormData(body);
+    
+    // 提取refresh_token
+    std::string refresh_token = form_data.count("refresh_token") > 0 ? form_data.at("refresh_token") : "";
+    
+    if (refresh_token.empty()) {
+      SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "refresh_token不能为空");
+      return true;
+    }
+    
+    // 验证refresh_token并生成新的access_token
+    auto new_token = JwtUtil::RefreshToken(refresh_token);
+    if (new_token) {
+      // 刷新成功，返回新的token
+      std::string data = "{\"token\":\"" + new_token.value() + "\"}";
+      SetJsonSuccessResponseWithData(response, data, "Token刷新成功");
+    } else {
+      SetJsonErrorResponse(response, HttpStatusCode::UNAUTHORIZED, "refresh_token无效");
     }
     
     return true;
@@ -505,10 +542,7 @@ void HttpServer::ProcessRequest(HttpRequest* request, HttpResponse& response) {
 }
 
 
-// 根据文件扩展名返回 Content-Type（已移动到 AppHandlers，这里保留作为备用）
-std::string HttpServer::GetContentType(const std::string& path) {
-  return ::GetContentType(path);  // 使用 AppHandlers 中的全局函数
-}
+
 
 void HttpServer::HandleSendComplete(spConnection conn){
 

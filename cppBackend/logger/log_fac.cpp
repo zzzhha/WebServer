@@ -5,6 +5,8 @@
 #include"xconfig.h"
 #include "user_format.h"
 #include<iostream>
+#include <algorithm>
+#include <cctype>
 #include <cstring>
 using namespace std;
 
@@ -51,6 +53,17 @@ void LogFac::Init(bool isasync,const std::string& con_file){
 		max_file_size_str = conf.Get("max_file_size_str", "10485760");
 		max_backup_index_str = conf.Get("max_backup_index_str", "5");
 	} 
+
+	auto LowerAsciiCopy = [](const std::string& s) -> std::string {
+		std::string out = s;
+		std::transform(out.begin(), out.end(), out.begin(),
+			[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		return out;
+	};
+
+	std::string log_type_lower = LowerAsciiCopy(log_type);
+	std::string log_level_lower = LowerAsciiCopy(log_level);
+	std::string isasync_lower = LowerAsciiCopy(isasync_str);
 	
 	//判断输出格式，并将其存储到logger对应格式中
 	//如果配置文件没有确定格式化输出
@@ -65,19 +78,19 @@ void LogFac::Init(bool isasync,const std::string& con_file){
 		logger_.SetFormat(make_unique<UserFormat>(log_user_format));
 	}
 	//判断日志级别，并将其存储到logger中
-	if (log_level == "info") {
+	if (log_level_lower == "info") {
 		logger_.SetLevel(Xlog::INFO);
 	}
-	else if(log_level == "warning"){
+	else if(log_level_lower == "warning"){
 		logger_.SetLevel(Xlog::WARNING);
 	}
-	else if (log_level == "error") {
+	else if (log_level_lower == "error") {
 		logger_.SetLevel(Xlog::ERROR);
 	} 
-	else if (log_level == "fatal") {
+	else if (log_level_lower == "fatal") {
 		logger_.SetLevel(Xlog::FATAL);
 	}
-	else if (log_level == "debug") {
+	else if (log_level_lower == "debug") {
 		logger_.SetLevel(Xlog::DEBUG);
 	}
 	else {
@@ -86,7 +99,7 @@ void LogFac::Init(bool isasync,const std::string& con_file){
 	}
 	
 	//设置异步模式，先初始化输出，再启动线程
-	bool use_async = (isasync_str == "true");
+	bool use_async = (isasync_lower == "true");
 	if (use_async) {
 		logger_.SetAsyncMode(true);
 		logger_.SetThreadStopWhile(false);
@@ -97,7 +110,7 @@ void LogFac::Init(bool isasync,const std::string& con_file){
 	}
 	
 	//特殊判断输出流为文件的时候
-	if (log_type.find("file")!=string::npos) {
+	if (log_type_lower.find("file")!=string::npos) {
 		//如果未指定输出文件，则输出到默认文件中，即输出到"log.txt"中
 		if (log_file.empty()) {
 			log_file = LOGFILE;

@@ -3,6 +3,7 @@
 #include "core/HttpRequest.h"
 #include "core/IHttpMessage.h"
 #include "error/HttpError.h"
+#include "util/HttpStringUtil.h"
 #include <algorithm>
 #include <cctype>
 #include <string>
@@ -164,7 +165,7 @@ bool SecurityValidationHandler::CheckPathSecurity(const std::string& path) const
 
   // 检查路径遍历攻击：../, ..\, %2e%2e, %2e%2e%2f等
   std::string lower_path = path;
-  std::transform(lower_path.begin(), lower_path.end(), lower_path.begin(), ::tolower);
+  LowerAsciiInPlace(lower_path);
 
   // 检查常见的路径遍历模式
   if (lower_path.find("../") != std::string::npos ||
@@ -217,7 +218,7 @@ bool SecurityValidationHandler::CheckSuspiciousPatterns(const HttpRequest& reque
 
   // 检查SQL注入常见模式（简单检测）
   std::string lower_path = path;
-  std::transform(lower_path.begin(), lower_path.end(), lower_path.begin(), ::tolower);
+  LowerAsciiInPlace(lower_path);
   
   // 检查常见的SQL注入关键词（简单检测，实际应该更复杂）
   std::vector<std::string> suspicious_patterns = {

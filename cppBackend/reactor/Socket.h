@@ -12,7 +12,7 @@ int createnonblocking();
 class Socket{
 private:
   const int fd_;
-  std::string ip_;  //如果是listenfd,则存放服务器监听的ip,乳沟是客户端连接的fd,
+  std::string ip_;  //如果是listenfd,则存放服务器监听的ip,如果是客户端连接的fd,则存放客户端的ip
   uint16_t port_;
 public:
   Socket(int fd); //
@@ -28,6 +28,6 @@ public:
   void settlinger(bool on);
   void setkeepalive(bool on);//设置SO_KEEPALIVE on true打开
   void bind(const InetAddress& servaddr); //服务端socket调用此函数
-  void listen(int n=128);   //服务端socket调用此函数
+  void listen(int n=256);   //服务端socket调用此函数
   int accept(InetAddress& clientaddr);//服务端socket调用此函数
 };

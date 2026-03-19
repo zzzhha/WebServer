@@ -3,6 +3,7 @@
 #include "handler/IRequestHandler.h"
 #include "core/HttpRequest.h"
 #include "core/HttpResponse.h"
+#include "util/HttpStringUtil.h"
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -31,7 +32,7 @@ struct RouteParams {
   
   // 检查是否存在查询参数
   inline bool HasQueryParam(const std::string& key) const {
-    return queryParams_.find(key) != queryParams_.end();
+    return queryParams_.find(LowerAsciiCopy(key)) != queryParams_.end();
   }
   
   // 获取所有查询参数
@@ -247,4 +248,3 @@ private:
   // 【新增】将HttpMethod转换为字符串（用于调试和日志）
   static std::string HttpMethodToString(HttpMethod method);
 };
-

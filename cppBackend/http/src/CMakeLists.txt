@@ -48,6 +48,12 @@ set(ERROR_SOURCES
   error/HttpErrorUtil.cpp
 )
 
+set(SECURITY_SOURCES
+  security/RequestRateLimiter.cpp
+  security/RequestDeduplicator.cpp
+  security/RequestProtectionManager.cpp
+)
+
 set(SERVER_SOURCES
   HttpFacade.cpp
 )
@@ -63,6 +69,7 @@ set(HTTP_SOURCES
   ${SSL_SOURCES}
   ${ROUTER_SOURCES}
   ${ERROR_SOURCES}
+  ${SECURITY_SOURCES}
   ${SERVER_SOURCES}
 )
 

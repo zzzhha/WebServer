@@ -20,6 +20,15 @@ bool iequals(std::string_view a, std::string_view b) {
   }
   return true;
 }
+
+std::string LowerAscii(std::string_view s) {
+  std::string out;
+  out.reserve(s.size());
+  for (char c : s) {
+    out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+  }
+  return out;
+}
 } // namespace
 
 Http1Parser::Http1Parser() {
@@ -63,6 +72,7 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
             return static_cast<int>(res);
           }
           state_ = ParseState::kHeaders;
+          res = ParseResult::NEEDMOREDATA;
           continue;
         }
 
@@ -72,6 +82,21 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
             auto te = currentMessage_->GetHeader("Transfer-Encoding");
             if (te && iequals(*te, "chunked")) {
               isChunked_ = true;
+              allowedTrailerKeys_.clear();
+              if (auto trailer = currentMessage_->GetHeader("Trailer")) {
+                std::string_view v(*trailer);
+                size_t pos = 0;
+                while (pos < v.size()) {
+                  while (pos < v.size() && (v[pos] == ' ' || v[pos] == '\t' || v[pos] == ',')) ++pos;
+                  size_t start = pos;
+                  while (pos < v.size() && v[pos] != ',') ++pos;
+                  size_t end = pos;
+                  while (end > start && (v[end - 1] == ' ' || v[end - 1] == '\t')) --end;
+                  if (end > start) {
+                    allowedTrailerKeys_.insert(LowerAscii(v.substr(start, end - start)));
+                  }
+                }
+              }
               state_ = ParseState::kBodyChunkedSize;
               res = ParseResult::NEEDMOREDATA;
               continue;
@@ -95,6 +120,18 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
             }
             res = FinalizeMessage(out);
             break;
+          }
+
+          // 支持在等待更多数据时重复喂入同一缓冲：若首个header行不含冒号，尝试重新识别为起始行
+          if (headerCount_ == 0 && line.find(':') == std::string::npos) {
+            ParseResult try_start = ParseStartLine(line);
+            if (try_start == ParseResult::SUCCESS) {
+              // 成功重同步为新的起始行
+              state_ = ParseState::kHeaders;
+              res = ParseResult::NEEDMOREDATA;
+              continue;
+            }
+            // 否则按原逻辑继续判定为无效头
           }
 
           headerBytes_ += line.size() + 2;
@@ -122,6 +159,7 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
             totalConsumed_ += consumed;
             return static_cast<int>(res);
           }
+          res = ParseResult::NEEDMOREDATA;
           continue;
         }
 
@@ -137,6 +175,7 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
           } else {
             state_ = ParseState::kBodyChunkedData;
           }
+          res = ParseResult::NEEDMOREDATA;
           continue;
         }
         break;
@@ -196,7 +235,7 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
       }
 
       case ParseState::kBodyChunkedEnd: {
-        // 期望一个空行结束 chunked（可忽略 trailer）
+        // 解析 trailer，直到空行结束
         size_t lineEnd = data.find("\r\n", consumed);
         if (lineEnd == std::string::npos) {
           lineBuffer_.append(data.begin() + consumed, data.end());
@@ -209,13 +248,66 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
         lineBuffer_.clear();
         consumed = lineEnd + 2;
 
-        if (!line.empty()) {
-          // 简化：忽略 trailer，但要求空行，否则视为错误
+        if (line.empty()) {
+          res = FinalizeMessage(out);
+          break;
+        }
+
+        headerBytes_ += line.size() + 2;
+        if (headerBytes_ > maxTotalHeaderBytes_) {
+          data.erase(0, consumed);
+          totalConsumed_ += consumed;
+          return static_cast<int>(ParseResult::HEADERTOOLONG);
+        }
+
+        if (line.size() > maxHeaderLineSize_) {
+          data.erase(0, consumed);
+          totalConsumed_ += consumed;
+          return static_cast<int>(ParseResult::HEADERTOOLONG);
+        }
+
+        if (++headerCount_ > maxHeaderCount_) {
+          data.erase(0, consumed);
+          totalConsumed_ += consumed;
+          return static_cast<int>(ParseResult::HEADERTOOLONG);
+        }
+
+        size_t colon = line.find(':');
+        if (colon == std::string::npos) {
           data.erase(0, consumed);
           totalConsumed_ += consumed;
           return static_cast<int>(ParseResult::ERROR);
         }
-        res = FinalizeMessage(out);
+
+        std::string key = trimLWS(std::string_view(line).substr(0, colon));
+        if (key.empty()) {
+          data.erase(0, consumed);
+          totalConsumed_ += consumed;
+          return static_cast<int>(ParseResult::ERROR);
+        }
+
+        std::string lowerKey = LowerAscii(key);
+        if (lowerKey == "transfer-encoding" || lowerKey == "content-length" || lowerKey == "trailer") {
+          data.erase(0, consumed);
+          totalConsumed_ += consumed;
+          return static_cast<int>(ParseResult::ERROR);
+        }
+
+        if (!allowedTrailerKeys_.empty() && allowedTrailerKeys_.find(lowerKey) == allowedTrailerKeys_.end()) {
+          data.erase(0, consumed);
+          totalConsumed_ += consumed;
+          return static_cast<int>(ParseResult::ERROR);
+        }
+
+        std::string value = trimLWS(std::string_view(line).substr(colon + 1));
+        if (strictHeaderCheck_ && !isTokenChar(key[0])) {
+          data.erase(0, consumed);
+          totalConsumed_ += consumed;
+          return static_cast<int>(ParseResult::ERROR);
+        }
+
+        currentMessage_->AppendHeader(key, value);
+        res = ParseResult::NEEDMOREDATA;
         break;
       }
 
@@ -255,6 +347,7 @@ void Http1Parser::Reset() {
   totalConsumed_ = 0;
   headerCount_ = 0;
   headerBytes_ = 0;
+  allowedTrailerKeys_.clear();
 }
 
 Http1Parser::~Http1Parser() = default;

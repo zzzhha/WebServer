@@ -24,8 +24,12 @@ public:
     static bool HandleRegister(const std::string& username, const std::string& password);
 
     // 处理登录请求
-    // 返回成功时返回JWT token，失败时返回std::nullopt
-    static std::optional<std::string> HandleLogin(const std::string& username, const std::string& password);
+    // 返回成功时返回包含access_token和refresh_token的结构体，失败时返回std::nullopt
+    struct LoginResult {
+        std::string access_token;
+        std::string refresh_token;
+    };
+    static std::optional<LoginResult> HandleLogin(const std::string& username, const std::string& password);
 
     // 验证用户名格式（可选）
     // 返回true表示格式有效，false表示格式无效

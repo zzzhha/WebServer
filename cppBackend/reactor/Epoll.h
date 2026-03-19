@@ -13,7 +13,7 @@ class Channel;
 
 class Epoll{
 private:
-  static const int MaxEvents = 100;
+  static const int MaxEvents = 512;
   int epollfd_=-1;
   epoll_event events_[MaxEvents];
 

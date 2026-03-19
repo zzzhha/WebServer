@@ -2,6 +2,7 @@
 #include<functional>
 #include<atomic>
 #include<any>
+#include<string>
 #include<sys/syscall.h>
 #include<sys/sendfile.h>
 #include<unistd.h>
@@ -17,6 +18,8 @@
 class Connection;
 class EventLoop;
 class Channel;
+class TlsContext;
+class TlsSession;
 using spConnection = std::shared_ptr<Connection>;
 
 class Connection:public std::enable_shared_from_this<Connection>{
@@ -49,6 +52,12 @@ private:
   };
 
   SendFileState sendfile_;
+
+  std::shared_ptr<TlsContext> tls_ctx_;
+  std::unique_ptr<TlsSession> tls_;
+  bool tls_decided_{false};
+  bool tls_plaintext_{false};
+  std::string tls_out_pending_;
 
   //定时器
   int tc_fd;
@@ -97,6 +106,8 @@ public:
   void StartSendFile(int file_fd, off_t offset, size_t count, bool close_fd = true);
   void ClearSendFile();
   bool HasSendFile() const { return sendfile_.active; }
+
+  void SetTlsContext(std::shared_ptr<TlsContext> ctx) { tls_ctx_ = std::move(ctx); }
 
   template <class T>
   void SetContext(T&& ctx) { context_ = std::forward<T>(ctx); }

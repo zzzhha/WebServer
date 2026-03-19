@@ -52,18 +52,15 @@ LOGDEBUG("设置新连接");
   conn->seterrorcallback(std::bind(&TcpServer::errorconnection,this,std::placeholders::_1));
   conn->setonmessagecallback(std::bind(&TcpServer::message,this,std::placeholders::_1/*暂且先注释了等后面需要用到工作线程在开出来,std::placeholders::_2*/));
   conn->setsendcompletecallback(std::bind(&TcpServer::sendcomplete,this,std::placeholders::_1));
-LOGDEBUG("tcp:设置发送完成回调");
   //定时器
   //conn->setupdatetimercallback(std::bind(&TcpServer::update_conn_timeout_time,this,std::placeholders::_1));
   ////conn->setclosetimercallback(std::bind(&TcpServer::closeconntimer,this,std::placeholders::_1));
   //add_new_tcp_conn(conn);//增加一个定时器，设定时间，超过时间后将关闭连接
   //时间轮
   conn->setupdatetimercallback(std::bind(&TcpServer::update_conn_timeout_time,this,std::placeholders::_1));
-LOGDEBUG("tcp:设置定时器");
   add_new_conn_timernode(conn);
   {
     std::lock_guard<std::mutex> lock(mmutex_);
-LOGDEBUG("tcp:存放入map容器");
     conns_[fd]=conn; //把conn存放到map容器中
   }
 
@@ -73,7 +70,6 @@ LOGDEBUG("tcp:存放入map容器");
 
   //时间戳
   //subloops_[conn->fd()%threadnum_]->newconnection(conn);      //把conn存放到EventLoop的map容器中
-LOGDEBUG("tcp初始化新客户端数据完毕,准备回调http服务器的HandleNewConnection");
   if(newconnectioncb_)newconnectioncb_(conn);
 }
 
@@ -179,8 +175,6 @@ void TcpServer::setsendcomplete(std::function<void(spConnection)>fn){
 void TcpServer::add_new_conn_timernode(spConnection conn) {
     // 添加到时间轮，设置超时时间
     time_wheel_.add_connection(conn, ts_tcp_conn_timeout_s_);
-    
-    // ... 其余代码
 }
 void TcpServer::update_conn_timeout_time(spConnection conn) {
     // 更新时间轮中的定时器

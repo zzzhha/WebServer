@@ -1,15 +1,16 @@
 #include"core/HttpRequest.h"
+#include "util/HttpStringUtil.h"
 
 const std::unordered_map<std::string,HttpMethod> HttpRequest::s_strMethod = {
-  {"GET",HttpMethod::GET},
-  {"POST",HttpMethod::POST},
-  {"PUT",HttpMethod::PUT},
-  {"DELETE",HttpMethod::DELETE},
-  {"PATCH",HttpMethod::PATCH},
-  {"HEAD",HttpMethod::HEAD},
-  {"OPTIONS",HttpMethod::OPTIONS},
-  {"TRACE",HttpMethod::TRACE},
-  {"CONNECT",HttpMethod::CONNECT}
+  {"get",HttpMethod::GET},
+  {"post",HttpMethod::POST},
+  {"put",HttpMethod::PUT},
+  {"delete",HttpMethod::DELETE},
+  {"patch",HttpMethod::PATCH},
+  {"head",HttpMethod::HEAD},
+  {"options",HttpMethod::OPTIONS},
+  {"trace",HttpMethod::TRACE},
+  {"connect",HttpMethod::CONNECT}
 };
 
 HttpRequest::HttpRequest(const HttpRequest& other) 
@@ -174,8 +175,7 @@ void HttpRequest::SetMethodString(std::string_view method) {
     return;
   }
 
-  std::string tmpmethod;
-  for(auto &ch : method) tmpmethod.push_back(std::toupper(ch));
+  std::string tmpmethod = LowerAsciiCopy(method);
   auto it = s_strMethod.find(tmpmethod);
   if(it != s_strMethod.end()) method_ = it->second;
   else method_ = HttpMethod::UNKNOWN;
@@ -241,32 +241,33 @@ std::string HttpRequest::GetVersionStr() const {
 
 std::string HttpRequest::GetMethodString() const {
   switch(method_){
-    case HttpMethod::GET     : return "GET";
-    case HttpMethod::POST    : return "POST";
-    case HttpMethod::PUT     : return "PUT";
-    case HttpMethod::DELETE  : return "DELETE";
-    case HttpMethod::PATCH   : return "PATCH";
-    case HttpMethod::HEAD    : return "HEAD";
-    case HttpMethod::OPTIONS : return "OPTIONS";
-    case HttpMethod::TRACE   : return "TRACE";
-    case HttpMethod::CONNECT : return "CONNECT";
-    default                  : return "UNKNOWN";
+    case HttpMethod::GET     : return "get";
+    case HttpMethod::POST    : return "post";
+    case HttpMethod::PUT     : return "put";
+    case HttpMethod::DELETE  : return "delete";
+    case HttpMethod::PATCH   : return "patch";
+    case HttpMethod::HEAD    : return "head";
+    case HttpMethod::OPTIONS : return "options";
+    case HttpMethod::TRACE   : return "trace";
+    case HttpMethod::CONNECT : return "connect";
+    default                  : return "unknown";
   }
 }
 
 void HttpRequest::AddQueryParam(const std::string& key, const std::string& value) {
-  queryParams_[key].emplace_back(value);
+  queryParams_[LowerAsciiCopy(key)].emplace_back(value);
   RebuildUrl();
 }
 
 void HttpRequest::SetQueryParam(const std::string& key, const std::string& value) {
-  queryParams_[key].clear();
-  queryParams_[key].emplace_back(value);
+  std::string normal_key = LowerAsciiCopy(key);
+  queryParams_[normal_key].clear();
+  queryParams_[normal_key].emplace_back(value);
   RebuildUrl();
 }
 
 std::string HttpRequest::GetQueryParam(const std::string& key) const {
-  auto it = queryParams_.find(key);
+  auto it = queryParams_.find(LowerAsciiCopy(key));
   if(it != queryParams_.end()) {
     if(it->second.empty()) {
       return "";
@@ -279,7 +280,7 @@ std::string HttpRequest::GetQueryParam(const std::string& key) const {
 }
 
 std::vector<std::string> HttpRequest::GetQueryParams(const std::string& key) const {
-  auto it = queryParams_.find(key);
+  auto it = queryParams_.find(LowerAsciiCopy(key));
     if (it != queryParams_.end()) {
         return it->second;
     }
@@ -287,8 +288,9 @@ std::vector<std::string> HttpRequest::GetQueryParams(const std::string& key) con
 }
 
 bool HttpRequest::RemoveQueryParam(const std::string& key) {
-  if(queryParams_.find(key) != queryParams_.end()) {
-    queryParams_.erase(queryParams_.find(key));
+  auto it = queryParams_.find(LowerAsciiCopy(key));
+  if(it != queryParams_.end()) {
+    queryParams_.erase(it);
     RebuildUrl();
     return true;
   } 
@@ -296,20 +298,8 @@ bool HttpRequest::RemoveQueryParam(const std::string& key) {
 }
 
 std::string HttpRequest::normalizeHeaderKey(const std::string& key) const {
-  std::string normalized = key;
-  bool capitalizeNext = true;
-  for(char &c : normalized) {
-    unsigned char uc = static_cast<unsigned char>(c);
-    if(capitalizeNext && std::isalpha(uc)) {
-      c              = static_cast<char>(std::toupper(uc));
-      capitalizeNext = false;
-    } else if (c == '-') {
-      capitalizeNext = true;
-    } else {
-      c = static_cast<char>(std::tolower(uc));
-    }
-  }
-  return normalized;
+  std::string_view trimmed = TrimAsciiWhitespace(key);
+  return LowerAsciiCopy(trimmed);
 }
 
 void HttpRequest::ParseUrl() {
@@ -362,6 +352,7 @@ void HttpRequest::ParseUrl() {
   if(!query.empty()) {
     ParseQueryString(query);
   }
+  RebuildUrl();
 }
 
 void HttpRequest::ParseQueryString(const std::string& querystr) {
@@ -390,7 +381,7 @@ void HttpRequest::ParseQueryString(const std::string& querystr) {
       value = UrlDecode(param_pair.substr(eq_pos + 1));
     }
 
-    queryParams_[key].push_back(value);
+    queryParams_[LowerAsciiCopy(key)].push_back(value);
   }
 }
 
@@ -589,7 +580,7 @@ void HttpRequest::SetMethod(HttpMethod method) {
 }
 
 void HttpRequest::SetPath(std::string_view path) {
-  path_ = path;
+  path_ = LowerAsciiCopy(path);
   RebuildUrl();
 }
 

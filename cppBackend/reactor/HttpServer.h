@@ -18,6 +18,8 @@
 #include <sys/stat.h>
 #include <vector>
 
+class TlsContext;
+
 /**
  * HttpServer类：HTTP服务器核心类
  * 职责：处理HTTP请求的接收、路由、处理和响应
@@ -30,6 +32,7 @@ private:
   ThreadPool threadpool_;                 // 工作线程池
   std::string static_path_;               // 静态资源路径
   std::shared_ptr<Router> router_;
+  std::shared_ptr<TlsContext> tls_ctx_;
   
 public:
   /**
@@ -111,10 +114,5 @@ private:
    */
   void SetupRoutes(Router& router);
   
-  /**
-   * 根据文件扩展名获取Content-Type
-   * @param path 文件路径
-   * @return Content-Type字符串
-   */
-  std::string GetContentType(const std::string& path);
+
 };

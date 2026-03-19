@@ -5,6 +5,7 @@
 #include <cctype>
 #include <unordered_set>
 #include <mutex>
+#include "util/HttpStringUtil.h"
 
 // ========== 工具函数实现 ==========
 
@@ -41,7 +42,8 @@ std::string Router::NormalizePath(const std::string& path, bool removeTrailingSl
   if (removeTrailingSlash && normalized.length() > 1 && normalized.back() == '/') {
     normalized.pop_back();
   }
-  
+
+  LowerAsciiInPlace(normalized);
   return normalized;
 }
 
@@ -59,7 +61,7 @@ bool Router::IsStaticPath(const std::string& path) {
 // ========== RouteParams 实现 ==========
 
 std::optional<std::string> RouteParams::GetParam(const std::string& key) const {
-  auto it = params_.find(key);
+  auto it = params_.find(LowerAsciiCopy(key));
   if (it != params_.end()) {
     return it->second;
   }
@@ -74,7 +76,7 @@ std::string RouteParams::GetWildcard() const {
 }
 
 std::optional<std::string> RouteParams::GetQueryParam(const std::string& key) const {
-  auto it = queryParams_.find(key);
+  auto it = queryParams_.find(LowerAsciiCopy(key));
   if (it != queryParams_.end() && !it->second.empty()) {
     return it->second[0];  // 返回第一个值
   }
@@ -82,7 +84,7 @@ std::optional<std::string> RouteParams::GetQueryParam(const std::string& key) co
 }
 
 std::vector<std::string> RouteParams::GetQueryParams(const std::string& key) const {
-  auto it = queryParams_.find(key);
+  auto it = queryParams_.find(LowerAsciiCopy(key));
   if (it != queryParams_.end()) {
     return it->second;
   }
@@ -616,8 +618,9 @@ void Router::AddMiddlewareForPath(const std::string& path, Middleware middleware
     return;
   }
   
+  std::string normalizedPath = NormalizePath(path, true);
   std::unique_lock<std::shared_mutex> lock(mutex_);
-  pathMiddlewares_[path].push_back(middleware);
+  pathMiddlewares_[normalizedPath].push_back(middleware);
 }
 
 
@@ -692,15 +695,15 @@ void Router::ExtractQueryParams(const HttpRequest& request, RouteParams& params)
 // 【新增】辅助函数：将HttpMethod转换为字符串
 std::string Router::HttpMethodToString(HttpMethod method) {
   switch (method) {
-    case HttpMethod::GET: return "GET";
-    case HttpMethod::POST: return "POST";
-    case HttpMethod::PUT: return "PUT";
-    case HttpMethod::DELETE: return "DELETE";
-    case HttpMethod::PATCH: return "PATCH";
-    case HttpMethod::HEAD: return "HEAD";
-    case HttpMethod::OPTIONS: return "OPTIONS";
-    case HttpMethod::TRACE: return "TRACE";
-    case HttpMethod::CONNECT: return "CONNECT";
-    default: return "UNKNOWN";
+    case HttpMethod::GET: return "get";
+    case HttpMethod::POST: return "post";
+    case HttpMethod::PUT: return "put";
+    case HttpMethod::DELETE: return "delete";
+    case HttpMethod::PATCH: return "patch";
+    case HttpMethod::HEAD: return "head";
+    case HttpMethod::OPTIONS: return "options";
+    case HttpMethod::TRACE: return "trace";
+    case HttpMethod::CONNECT: return "connect";
+    default: return "unknown";
   }
 }

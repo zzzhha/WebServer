@@ -99,7 +99,7 @@ bool AuthService::HandleRegister(const std::string& username, const std::string&
 }
 
 // 处理登录请求
-std::optional<std::string> AuthService::HandleLogin(const std::string& username, const std::string& password) {
+std::optional<AuthService::LoginResult> AuthService::HandleLogin(const std::string& username, const std::string& password) {
     // 业务验证：检查用户名和密码是否为空
     if (username.empty() || password.empty()) {
         LOGWARNING("登录失败：用户名或密码为空");
@@ -120,14 +120,21 @@ std::optional<std::string> AuthService::HandleLogin(const std::string& username,
     }
 
     // 登录成功，生成JWT token
-    std::string token = JwtUtil::GenerateToken(username, userInfo->id);
-    if (token.empty()) {
+    std::string access_token = JwtUtil::GenerateToken(username, userInfo->id);
+    if (access_token.empty()) {
         LOGERROR("登录成功但生成token失败：用户名 = " + username);
         return std::nullopt;
     }
 
+    // 生成refresh_token
+    std::string refresh_token = JwtUtil::GenerateToken(username, userInfo->id);
+    if (refresh_token.empty()) {
+        LOGERROR("登录成功但生成refresh_token失败：用户名 = " + username);
+        return std::nullopt;
+    }
+
     LOGINFO("登录成功：用户名 = " + username);
-    return token;
+    return LoginResult{access_token, refresh_token};
 }
 
 // 验证JWT token

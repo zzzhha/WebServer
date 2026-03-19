@@ -4,6 +4,7 @@
 #include<string>
 #include<memory>
 #include<algorithm>
+#include<unordered_set>
 
 class HttpRequest;
 class HttpResponse;
@@ -49,4 +50,5 @@ private:
   size_t headerBytes_ = 0;
   size_t bodyTotalReceived_ = 0;
   size_t maxTotalHeaderBytes_ = 16 * 1024;
+  std::unordered_set<std::string> allowedTrailerKeys_;
 };

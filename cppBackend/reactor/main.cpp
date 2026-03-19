@@ -18,6 +18,27 @@
 */
 #include"HttpServer.h"
 #include<signal.h>
+#include<filesystem>
+#include<vector>
+
+namespace {
+std::string ResolveStaticPath() {
+  namespace fs = std::filesystem;
+  const std::vector<fs::path> candidates = {
+    fs::path("./html"),
+    fs::path("../html"),
+    fs::path("../../html")
+  };
+  for (const auto& candidate : candidates) {
+    std::error_code ec;
+    fs::path index_file = candidate / "index.html";
+    if (fs::exists(index_file, ec) && fs::is_regular_file(index_file, ec)) {
+      return fs::weakly_canonical(candidate, ec).string();
+    }
+  }
+  return "./html";
+}
+}
 
 HttpServer *httpserver;
 void Stop(int sig){
@@ -35,7 +56,7 @@ int main(int argc ,const char*argv[]){
   signal(SIGTERM,Stop);
   signal(SIGINT,Stop);
 
-  httpserver=new HttpServer(argv[1],atoi(argv[2]),360,true,3306,"webuser","12589777","webserver",6,0,12,"./html");
+  httpserver=new HttpServer(argv[1],atoi(argv[2]),360,true,3306,"webuser","12589777","webserver",6,0,12,ResolveStaticPath());
   httpserver->start();
   
   return 0;

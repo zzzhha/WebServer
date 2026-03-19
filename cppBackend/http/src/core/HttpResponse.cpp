@@ -1,5 +1,6 @@
 #include"core/HttpResponse.h"
 #include <cctype>
+#include "util/HttpStringUtil.h"
 
 HttpResponse::HttpResponse() : 
     version_(HttpVersion::HTTP_1_1), 
@@ -157,11 +158,13 @@ void HttpResponse::SetStatusCodeInt(int code) {
     case 403: statusCode_ = HttpStatusCode::FORBIDDEN; break;
     case 404: statusCode_ = HttpStatusCode::NOT_FOUND; break;
     case 405: statusCode_ = HttpStatusCode::METHOD_NOT_ALLOWED; break;
+    case 409: statusCode_ = HttpStatusCode::CONFLICT; break;
     case 408: statusCode_ = HttpStatusCode::REQUEST_TIMEOUT; break;
     case 413: statusCode_ = HttpStatusCode::PAYLOAD_TOO_LARGE; break;
     case 414: statusCode_ = HttpStatusCode::URI_TOO_LONG; break;
     case 415: statusCode_ = HttpStatusCode::UNSUPPORTED_MEDIA_TYPE; break;
     case 416: statusCode_ = HttpStatusCode::RANGE_NOT_SATISFIABLE; break;
+    case 429: statusCode_ = HttpStatusCode::TOO_MANY_REQUESTS; break;
     case 431: statusCode_ = HttpStatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE; break;
     
     case 500: statusCode_ = HttpStatusCode::INTERNAL_SERVER_ERROR; break;
@@ -179,7 +182,7 @@ std::string HttpResponse::Serialize() const {
   std::string result = GetVersionStr() + " " + std::to_string(static_cast<int>(statusCode_)) + " " + statusReason_ + "\r\n";
 
   if (!HasHeader("Content-Length") && !HasHeader("Transfer-Encoding")) {
-    result += "Content-Length: " + std::to_string(body_.size()) + "\r\n";
+    result += "content-length: " + std::to_string(body_.size()) + "\r\n";
   }
 
   for(auto &pair : headers_) {
@@ -256,11 +259,13 @@ std::string HttpResponse::GetDefaultReason(HttpStatusCode statusCode) {
     case HttpStatusCode::FORBIDDEN: return "Forbidden";
     case HttpStatusCode::NOT_FOUND: return "Not Found";
     case HttpStatusCode::METHOD_NOT_ALLOWED: return "Method Not Allowed";
+    case HttpStatusCode::CONFLICT: return "Conflict";
     case HttpStatusCode::REQUEST_TIMEOUT: return "Request Timeout";
     case HttpStatusCode::PAYLOAD_TOO_LARGE: return "Payload Too Large";
     case HttpStatusCode::URI_TOO_LONG: return "URI Too Long";
     case HttpStatusCode::UNSUPPORTED_MEDIA_TYPE: return "Unsupported Media Type";
     case HttpStatusCode::RANGE_NOT_SATISFIABLE: return "Range Not Satisfiable";
+    case HttpStatusCode::TOO_MANY_REQUESTS: return "Too Many Requests";
     case HttpStatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE: return "Request Header Fields Too Large";
     case HttpStatusCode::INTERNAL_SERVER_ERROR: return "Internal Server Error";
     case HttpStatusCode::NOT_IMPLEMENTED: return "Not Implemented";
@@ -274,12 +279,12 @@ std::string HttpResponse::GetDefaultReason(HttpStatusCode statusCode) {
 
 std::string HttpResponse::trim(std::string_view& view) {
   size_t key_start = 0;
-  while(key_start < view.length() && std::isspace(static_cast<char>(view[key_start]))) {
+  while(key_start < view.length() && std::isspace(static_cast<unsigned char>(view[key_start]))) {
     ++key_start;
   } 
 
   size_t key_end = view.length();
-  while(key_end > key_start && std::isspace(static_cast<char>(view[key_end - 1]))) {
+  while(key_end > key_start && std::isspace(static_cast<unsigned char>(view[key_end - 1]))) {
     --key_end;
   }
 
@@ -287,17 +292,6 @@ std::string HttpResponse::trim(std::string_view& view) {
 }
 
 std::string HttpResponse::normalizeHeaderKey(const std::string& key) const {
-  std::string normalized = key;
-  bool capitalizeNext = true;
-  for(char &c : normalized) {
-    if(capitalizeNext && std::isalpha(c)) {
-      c              = std::toupper(c);
-      capitalizeNext = false;
-    } else if (c == '-') {
-      capitalizeNext = true;
-    } else {
-      c = std::tolower(c);
-    }
-  }
-  return normalized;
+  std::string_view trimmed = TrimAsciiWhitespace(key);
+  return LowerAsciiCopy(trimmed);
 }

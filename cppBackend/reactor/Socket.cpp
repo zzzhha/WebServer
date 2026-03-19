@@ -59,7 +59,7 @@ void Socket::bind(const InetAddress& servaddr) {
   if(::bind(fd_,servaddr.addr(),sizeof(sockaddr))<0){
     perror("bind error");
     close(fd_);
-    exit(-1);
+    exit(-1);   //此处不应该直接退出后续做修改抛出异常然后接收异常
   }
   setipport(servaddr.ip(),servaddr.port());
 }
@@ -68,7 +68,7 @@ void Socket::listen(int n){
   if(::listen(fd_,n)!=0){
     perror("listen error");
     close(fd_);
-    exit(-1);
+    exit(-1);//此处同上
   }
 }
 
@@ -76,7 +76,7 @@ int Socket::accept(InetAddress& clientaddr){
   sockaddr_in peeraddr;
   socklen_t len=sizeof(peeraddr);
 
-  int connfd = accept4(fd_,(struct sockaddr*)&peeraddr,&len,SOCK_NONBLOCK);
+  int connfd = accept4(fd_,(struct sockaddr*)&peeraddr,&len,SOCK_NONBLOCK);//使用非阻塞io
   if (connfd >= 0) {
     clientaddr.setaddr(peeraddr);
   }

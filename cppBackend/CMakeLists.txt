@@ -187,6 +187,10 @@ set(REACTOR_SOURCES
     reactor/InetAddress.h
     reactor/Socket.cpp
     reactor/Socket.h
+    reactor/TlsContext.cpp
+    reactor/TlsContext.h
+    reactor/TlsSession.cpp
+    reactor/TlsSession.h
     reactor/tcpserver.cpp
     reactor/tcpserver.h
     reactor/ThreadPool.cpp
@@ -221,9 +225,6 @@ add_executable(${PROJECT_NAME}
     ${VIEWS_SOURCES}
     ${AUTH_SOURCES}
 )
-
-# 确保前端资源在后端构建之前复制
-add_dependencies(${PROJECT_NAME} copy_frontend)
 
 # 链接库
 target_link_libraries(${PROJECT_NAME}

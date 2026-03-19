@@ -1,6 +1,12 @@
 #include"Connection.h"
 #include <errno.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <algorithm>
+#include <cctype>
+
+#include "TlsContext.h"
+#include "TlsSession.h"
 
 
 Connection::Connection(EventLoop* loop,std::unique_ptr<Socket>clientsock)
@@ -82,6 +88,93 @@ void Connection::writecallback(){
   if(disconnect_){
     return;
   }
+
+  if (tls_ && !tls_->HandshakeDone()) {
+    TlsIoResult hr = tls_->DriveHandshake();
+    if (hr == TlsIoResult::WANT_WRITE) {
+      return;
+    }
+    if (hr == TlsIoResult::WANT_READ) {
+      clientchannel_->disablewriting();
+      return;
+    }
+    if (hr != TlsIoResult::OK) {
+      errorcallback();
+      return;
+    }
+  }
+
+  if (tls_ && tls_->HandshakeDone() && !tls_->KtlsTx()) {
+    while (true) {
+      if (!tls_out_pending_.empty()) {
+        size_t nwritten = 0;
+        TlsIoResult wr = tls_->WritePlain(tls_out_pending_.data(), tls_out_pending_.size(), nwritten);
+        if (wr == TlsIoResult::OK) {
+          if (nwritten > 0) {
+            tls_out_pending_.erase(0, nwritten);
+            continue;
+          }
+        }
+        if (wr == TlsIoResult::WANT_WRITE) {
+          return;
+        }
+        if (wr == TlsIoResult::WANT_READ) {
+          return;
+        }
+        if (wr == TlsIoResult::CLOSED) {
+          closecallback();
+          return;
+        }
+        errorcallback();
+        return;
+      }
+
+      if (outputbuffer_.readableBytes() > 0) {
+        size_t take = std::min<size_t>(16384, outputbuffer_.readableBytes());
+        tls_out_pending_.assign(take, '\0');
+        outputbuffer_.peekFromBlock(&tls_out_pending_[0], take);
+        outputbuffer_.consumeBytes(take);
+        continue;
+      }
+
+      if (sendfile_.active) {
+        if (sendfile_.remaining == 0) {
+          ClearSendFile();
+          continue;
+        }
+        size_t to_read = std::min<size_t>(16384, sendfile_.remaining);
+        tls_out_pending_.assign(to_read, '\0');
+        ssize_t n = ::pread(sendfile_.file_fd, &tls_out_pending_[0], to_read, sendfile_.offset);
+        if (n > 0) {
+          tls_out_pending_.resize(static_cast<size_t>(n));
+          sendfile_.offset += static_cast<off_t>(n);
+          sendfile_.remaining -= static_cast<size_t>(n);
+          continue;
+        }
+        if (n == 0) {
+          sendfile_.remaining = 0;
+          ClearSendFile();
+          continue;
+        }
+        if (errno == EINTR) {
+          tls_out_pending_.clear();
+          continue;
+        }
+        LOGERROR("pread failed, fd: " + std::to_string(fd()) + " error: " + strerror(errno));
+        errorcallback();
+        return;
+      }
+
+      clientchannel_->disablewriting();
+      if (sendcompletecallback_ && !disconnect_) {
+        sendcompletecallback_(shared_from_this());
+      }
+      if (close_on_send_complete_ && !disconnect_) {
+        closecallback();
+      }
+      return;
+    }
+  }
   
   //新版本
 LOGDEBUG("准备发送数据");
@@ -151,6 +244,106 @@ void Connection::onmessage(){
   if(disconnect_){
     return;
   }
+
+  if (tls_ctx_ && !tls_decided_) {
+    unsigned char probe[8];
+    ssize_t n = ::recv(fd(), probe, sizeof(probe), MSG_PEEK);
+    if (n == 0) {
+      closecallback();
+      return;
+    }
+    if (n < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+        return;
+      }
+      errorcallback();
+      return;
+    }
+
+    auto looks_like_tls = [](const unsigned char* p, size_t len) -> bool {
+      if (len < 3) return false;
+      unsigned char ct = p[0];
+      if (ct != 0x14 && ct != 0x15 && ct != 0x16 && ct != 0x17) return false;
+      if (p[1] != 0x03) return false;
+      return true;
+    };
+    auto looks_like_http = [](const unsigned char* p, size_t len) -> bool {
+      if (len < 3) return false;
+      std::string s(reinterpret_cast<const char*>(p), std::min<size_t>(len, 8));
+      for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+      return s.rfind("GET ", 0) == 0 || s.rfind("POST", 0) == 0 || s.rfind("PUT ", 0) == 0 ||
+             s.rfind("HEAD", 0) == 0 || s.rfind("HTTP", 0) == 0 || s.rfind("OPTI", 0) == 0 ||
+             s.rfind("DELE", 0) == 0 || s.rfind("PATC", 0) == 0;
+    };
+
+    if (looks_like_tls(probe, static_cast<size_t>(n))) {
+      tls_ = std::make_unique<TlsSession>(tls_ctx_, fd());
+      tls_decided_ = true;
+      tls_plaintext_ = false;
+    } else if (looks_like_http(probe, static_cast<size_t>(n))) {
+      tls_decided_ = true;
+      tls_plaintext_ = true;
+      if (tls_ctx_ && tls_ctx_->Strict()) {
+        closecallback();
+        return;
+      }
+    } else {
+      return;
+    }
+  }
+
+  if (tls_) {
+    while (true) {
+      if (!tls_->HandshakeDone()) {
+        TlsIoResult hr = tls_->DriveHandshake();
+        if (hr == TlsIoResult::OK) {
+          continue;
+        }
+        if (hr == TlsIoResult::WANT_WRITE) {
+          clientchannel_->enablewriting();
+          return;
+        }
+        if (hr == TlsIoResult::WANT_READ) {
+          return;
+        }
+        errorcallback();
+        return;
+      }
+
+      char buf[16384];
+      size_t nread = 0;
+      TlsIoResult rr = tls_->ReadPlain(buf, sizeof(buf), nread);
+      if (rr == TlsIoResult::OK) {
+        if (nread > 0) {
+          inputbuffer_.append(buf, nread);
+          continue;
+        }
+      }
+      if (rr == TlsIoResult::WANT_READ) {
+        break;
+      }
+      if (rr == TlsIoResult::WANT_WRITE) {
+        clientchannel_->enablewriting();
+        break;
+      }
+      if (rr == TlsIoResult::CLOSED) {
+        closecallback();
+        return;
+      }
+      errorcallback();
+      return;
+    }
+
+    if (disconnect_) return;
+    if (updatetimercallback_) {
+      updatetimercallback_(shared_from_this());
+    }
+    if (onmessagecallback_) {
+      onmessagecallback_(shared_from_this());
+    }
+    return;
+  }
+
   char buffer[1024];
   while (true){
     bzero(&buffer, sizeof(buffer));
