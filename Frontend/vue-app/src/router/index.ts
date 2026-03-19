@@ -5,6 +5,7 @@ import LoginPage from '@/pages/LoginPage.vue'
 import RegisterPage from '@/pages/RegisterPage.vue'
 import PicturePage from '@/pages/PicturePage.vue'
 import VideoPage from '@/pages/VideoPage.vue'
+import { useAuthStore } from '@/stores/auth'
 
 // 定义路由配置
 const routes = [
@@ -25,6 +26,21 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+// 添加路由守卫
+router.beforeEach((to, from, next) => {
+  const auth = useAuthStore()
+  // 确保auth store已初始化
+  if (!auth.token) {
+    auth.init()
+  }
+  
+  if (to.meta.requiresAuth && !auth.isLoggedIn) {
+    next('/login.html')
+  } else {
+    next()
+  }
 })
 
 export default router

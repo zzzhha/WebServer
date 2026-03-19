@@ -4,7 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { listFiles, type FileItem } from '@/api/files'
 import { useToastStore } from '@/stores/toast'
-import { resumableUpload } from '@/utils/resumableUpload'
+import UserDropdownMenu from '@/components/UserDropdownMenu.vue'
 
 const { username, token } = storeToRefs(useAuthStore())
 
@@ -38,54 +38,7 @@ function downloadVideo(fileName: string) {
 async function refresh() {
   const r = await listFiles('video')
   if (r.ok) remoteFiles.value = r.files
-}
-
-const uploadInput = ref<HTMLInputElement | null>(null)
-const uploadOpen = ref(false)
-const uploadName = ref('')
-const uploadPercent = ref(0)
-const uploadController = ref<AbortController | null>(null)
-
-function pickUpload() {
-  uploadInput.value?.click()
-}
-
-async function onPickFile(e: Event) {
-  const el = e.target as HTMLInputElement
-  const file = el.files?.[0]
-  el.value = ''
-  if (!file) return
-
-  uploadOpen.value = true
-  uploadName.value = file.name
-  uploadPercent.value = 0
-  uploadController.value?.abort()
-  const ctrl = new AbortController()
-  uploadController.value = ctrl
-
-  toast.push('已开始上传：' + file.name, 1200)
-  const done = await resumableUpload({
-    file,
-    folder: 'video',
-    signal: ctrl.signal,
-    onProgress(p) {
-      uploadPercent.value = p.percent
-    },
-  })
-
-  if (done.ok && done.body?.success) {
-    toast.push('上传完成：' + file.name, 1500)
-    uploadOpen.value = false
-    await refresh()
-  } else if (ctrl.signal.aborted) {
-    toast.push('已暂停上传：' + file.name, 1500)
-  } else {
-    toast.push('上传失败：' + file.name, 2000)
-  }
-}
-
-function pauseUpload() {
-  uploadController.value?.abort()
+  else toast.push('获取视频列表失败', 2000)
 }
 
 onMounted(() => {
@@ -101,27 +54,14 @@ onMounted(() => {
     </div>
     <div class="nav-controls">
       <a href="picture.html" class="nav-btn">图片页面</a>
-      <button type="button" class="nav-btn" @click="pickUpload">上传</button>
       <div class="auth-controls">
         <a v-if="!(username && token)" href="login.html" class="auth-btn">登录</a>
         <span v-if="!(username && token)" class="divider">|</span>
         <a v-if="!(username && token)" href="register.html" class="auth-btn">注册</a>
-        <span v-else class="user-greeting">欢迎您，{{ username }}</span>
+        <UserDropdownMenu v-else :username="username || ''" />
       </div>
     </div>
   </header>
-
-  <input ref="uploadInput" type="file" accept="video/*" style="display: none" @change="onPickFile" />
-
-  <div v-if="uploadOpen" class="upload-status">
-    <div class="upload-title">正在上传：{{ uploadName }}</div>
-    <div class="upload-bar">
-      <div class="upload-bar-inner" :style="{ width: uploadPercent + '%' }"></div>
-    </div>
-    <div class="upload-actions">
-      <button type="button" class="upload-action" @click="pauseUpload">暂停</button>
-    </div>
-  </div>
 
   <div class="video-list">
     <div v-for="v in videos" :key="v.fileName" class="video-item">
@@ -221,11 +161,6 @@ header {
   transform: scale(1.05);
 }
 
-.user-greeting {
-  color: #333;
-  font-size: 1rem;
-}
-
 .divider {
   color: #999;
 }
@@ -283,58 +218,6 @@ header {
 }
 
 .download-btn:hover {
-  background-color: #c09871;
-  transform: scale(1.05);
-}
-
-.upload-status {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.75);
-  color: #fff;
-  border-radius: 6px;
-  font-size: 14px;
-  z-index: 9999;
-  width: min(360px, 86vw);
-}
-
-.upload-title {
-  margin-bottom: 8px;
-}
-
-.upload-bar {
-  height: 8px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.upload-bar-inner {
-  height: 100%;
-  background: #d2b48c;
-  width: 0;
-  transition: width 0.2s ease;
-}
-
-.upload-actions {
-  margin-top: 10px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.upload-action {
-  padding: 6px 12px;
-  background-color: #d2b48c;
-  color: #333;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.upload-action:hover {
   background-color: #c09871;
   transform: scale(1.05);
 }

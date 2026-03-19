@@ -103,12 +103,21 @@ async function onSubmit() {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+:global(body.page-centered #app) {
+  width: min(92vw, 400px);
 }
 
 header {
   position: fixed;
   top: 20px;
   left: 20px;
+  z-index: 100;
 }
 
 .home-link {
@@ -128,7 +137,9 @@ header {
   border-radius: 15px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 400px;
+  max-width: none;
+  min-height: 450px;
+  box-sizing: border-box;
 }
 
 .form-title {
@@ -156,6 +167,7 @@ header {
   border-radius: 8px;
   font-size: 1rem;
   transition: border-color 0.3s ease;
+  box-sizing: border-box;
 }
 
 .form-input:focus {
@@ -173,6 +185,7 @@ header {
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
+  box-sizing: border-box;
 }
 
 .btn:hover {
@@ -201,12 +214,6 @@ header {
   color: #c09871;
 }
 
-.password-hint {
-  font-size: 0.85rem;
-  color: #777;
-  margin-top: 5px;
-}
-
 .message {
   text-align: center;
   margin-bottom: 15px;
@@ -224,13 +231,42 @@ header {
   background-color: rgba(39, 174, 96, 0.1);
 }
 
+.password-hint {
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 5px;
+}
+
+/* 移动端适配 */
 @media (max-width: 480px) {
   .form-container {
     padding: 30px 20px;
+    margin: 0 10px;
   }
-
+  
   .form-title {
     font-size: 1.8rem;
+  }
+  
+  .form-input {
+    padding: 10px 12px;
+  }
+  
+  .btn {
+    padding: 10px;
+  }
+  
+  /* 键盘弹出时的处理 */
+  @media (max-height: 500px) {
+    :global(body.page-centered) {
+      justify-content: flex-start;
+      padding-top: 80px;
+    }
+    
+    .form-container {
+      max-height: 80vh;
+      overflow-y: auto;
+    }
   }
 }
 </style>

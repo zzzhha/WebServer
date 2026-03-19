@@ -1,6 +1,9 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios'
 import { useToastStore } from '@/stores/toast'
 
+let isRefreshing = false
+let refreshSubscribers: ((token: string) => void)[] = []
+
 export type HttpResult<T> = {
   ok: boolean
   status: number
@@ -22,8 +25,80 @@ client.interceptors.request.use((config) => {
   if (!headers.Authorization && !headers.authorization) {
     headers.Authorization = `Bearer ${token}`
   }
+  // 添加CSRF Token保护
+  const csrfToken = localStorage.getItem('csrf_token')
+  if (csrfToken) {
+    headers['X-CSRF-Token'] = csrfToken
+  }
   return config
 })
+
+// 添加响应拦截器处理Token刷新
+client.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config
+    
+    // 处理401错误（Token过期）
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // 等待token刷新完成
+        return new Promise((resolve) => {
+          refreshSubscribers.push((token: string) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`
+            resolve(client(originalRequest))
+          })
+        })
+      }
+      
+      originalRequest._retry = true
+      isRefreshing = true
+      
+      try {
+        // 尝试刷新token
+        const refreshToken = localStorage.getItem('refresh_token')
+        if (!refreshToken) {
+          throw new Error('No refresh token')
+        }
+        
+        const response = await client.post('/refresh-token', {
+          refresh_token: refreshToken
+        })
+        
+        if (response.status === 200 && response.data?.success && response.data?.data?.token) {
+          const newToken = response.data.data.token
+          localStorage.setItem('jwt_token', newToken)
+          
+          // 通知所有等待的请求
+          refreshSubscribers.forEach(cb => cb(newToken))
+          refreshSubscribers = []
+          
+          // 更新当前请求的token并重新发送
+          originalRequest.headers.Authorization = `Bearer ${newToken}`
+          return client(originalRequest)
+        } else {
+          throw new Error('Token refresh failed')
+        }
+      } catch (refreshError) {
+        // 刷新失败，清除token并跳转到登录页
+        localStorage.removeItem('jwt_token')
+        localStorage.removeItem('refresh_token')
+        localStorage.removeItem('username')
+        localStorage.removeItem('csrf_token')
+        
+        if (!window.location.pathname.endsWith('/login.html')) {
+          window.location.href = 'login.html'
+        }
+        
+        return Promise.reject(refreshError)
+      } finally {
+        isRefreshing = false
+      }
+    }
+    
+    return Promise.reject(error)
+  }
+)
 
 function getRequestId(resp: AxiosResponse) {
   const v = resp.headers['x-request-id']

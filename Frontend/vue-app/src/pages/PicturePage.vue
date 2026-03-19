@@ -4,7 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { listFiles, type FileItem } from '@/api/files'
 import { useToastStore } from '@/stores/toast'
-import { resumableUpload } from '@/utils/resumableUpload'
+import UserDropdownMenu from '@/components/UserDropdownMenu.vue'
 
 const { username, token } = storeToRefs(useAuthStore())
 
@@ -21,22 +21,13 @@ const images = computed(() => {
   ] as any
 })
 
-const loaded = ref<Record<string, boolean>>({})
 const errored = ref<Record<string, boolean>>({})
 
 const zoomOpen = ref(false)
 const zoomSrc = ref('')
 
-function loadImage(src: string) {
-  if (loaded.value[src] || errored.value[src]) return
-  const img = new Image()
-  img.src = src
-  img.onload = () => {
-    loaded.value = { ...loaded.value, [src]: true }
-  }
-  img.onerror = () => {
-    errored.value = { ...errored.value, [src]: true }
-  }
+function onImageError(src: string) {
+  errored.value = { ...errored.value, [src]: true }
 }
 
 function openZoom(src: string) {
@@ -52,55 +43,9 @@ async function refresh() {
   const r = await listFiles('images')
   if (r.ok) {
     remoteFiles.value = r.files
-  }
-}
-
-const uploadInput = ref<HTMLInputElement | null>(null)
-const uploadOpen = ref(false)
-const uploadName = ref('')
-const uploadPercent = ref(0)
-const uploadController = ref<AbortController | null>(null)
-
-function pickUpload() {
-  uploadInput.value?.click()
-}
-
-async function onPickFile(e: Event) {
-  const el = e.target as HTMLInputElement
-  const file = el.files?.[0]
-  el.value = ''
-  if (!file) return
-
-  uploadOpen.value = true
-  uploadName.value = file.name
-  uploadPercent.value = 0
-  uploadController.value?.abort()
-  const ctrl = new AbortController()
-  uploadController.value = ctrl
-
-  toast.push('已开始上传：' + file.name, 1200)
-  const done = await resumableUpload({
-    file,
-    folder: 'images',
-    signal: ctrl.signal,
-    onProgress(p) {
-      uploadPercent.value = p.percent
-    },
-  })
-
-  if (done.ok && done.body?.success) {
-    toast.push('上传完成：' + file.name, 1500)
-    uploadOpen.value = false
-    await refresh()
-  } else if (ctrl.signal.aborted) {
-    toast.push('已暂停上传：' + file.name, 1500)
   } else {
-    toast.push('上传失败：' + file.name, 2000)
+    toast.push('获取图片列表失败', 2000)
   }
-}
-
-function pauseUpload() {
-  uploadController.value?.abort()
 }
 
 onMounted(() => {
@@ -114,47 +59,25 @@ onMounted(() => {
       <a href="index.html" class="back-btn">← 返回主页</a>
       <div class="logo">图片展示</div>
     </div>
-    <div class="nav-links">
-      <span v-if="username && token" class="greeting">欢迎您，{{ username }}</span>
-      <a v-else href="login.html">登录</a>
-      <span v-if="!(username && token)" class="divider">|</span>
-      <a v-if="!(username && token)" href="register.html">注册</a>
-      <span v-if="!(username && token)" class="divider">|</span>
-      <a href="video.html">视频</a>
-      <span class="divider">|</span>
-      <button type="button" class="upload-link" @click="pickUpload">上传</button>
+    <div class="nav-controls">
+      <a href="video.html" class="nav-btn">视频页面</a>
+      <div class="auth-controls">
+        <a v-if="!(username && token)" href="login.html" class="auth-btn">登录</a>
+        <span v-if="!(username && token)" class="divider">|</span>
+        <a v-if="!(username && token)" href="register.html" class="auth-btn">注册</a>
+        <UserDropdownMenu v-else :username="username || ''" />
+      </div>
     </div>
   </header>
 
-  <input ref="uploadInput" type="file" accept="image/*" style="display: none" @change="onPickFile" />
-
-  <div v-if="uploadOpen" class="upload-status">
-    <div class="upload-title">正在上传：{{ uploadName }}</div>
-    <div class="upload-bar">
-      <div class="upload-bar-inner" :style="{ width: uploadPercent + '%' }"></div>
-    </div>
-    <div class="upload-actions">
-      <button type="button" class="upload-action" @click="pauseUpload">暂停</button>
-    </div>
-  </div>
-
   <div class="image-grid">
     <div v-for="item in images" :key="item.name" class="image-card">
-      <div
-        class="image-placeholder"
-        role="button"
-        tabindex="0"
-        @click="loadImage(item.url)"
-        @keydown.enter="loadImage(item.url)"
-      >
-        <template v-if="loaded[item.url]">
-          <img :src="item.url" alt="" class="image" />
-        </template>
-        <template v-else-if="errored[item.url]">
+      <div class="image-placeholder">
+        <template v-if="errored[item.url]">
           <span class="error-text">图片加载失败</span>
         </template>
         <template v-else>
-          点击加载图片
+          <img :src="item.url" alt="" class="image" @error="onImageError(item.url)" />
         </template>
       </div>
       <div class="image-actions">
@@ -211,98 +134,55 @@ header {
   font-weight: bold;
 }
 
-.nav-links {
+.nav-controls {
   display: flex;
-  gap: 20px;
+  gap: 15px;
   align-items: center;
 }
 
-.nav-links a,
-.nav-links span {
-  color: #555;
-  text-decoration: none;
-  transition: color 0.3s ease;
-  font-size: 1rem;
-}
-
-.upload-link {
-  background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  color: #555;
-  font-size: 1rem;
-  transition: color 0.3s ease;
-}
-
-.upload-link:hover {
-  color: #d2b48c;
-}
-
-.upload-status {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.75);
-  color: #fff;
-  border-radius: 6px;
-  font-size: 14px;
-  z-index: 9999;
-  width: min(360px, 86vw);
-}
-
-.upload-title {
-  margin-bottom: 8px;
-}
-
-.upload-bar {
-  height: 8px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.upload-bar-inner {
-  height: 100%;
-  background: #d2b48c;
-  width: 0;
-  transition: width 0.2s ease;
-}
-
-.upload-actions {
-  margin-top: 10px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.upload-action {
-  padding: 6px 12px;
+.nav-btn {
+  padding: 8px 16px;
   background-color: #d2b48c;
   color: #333;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
+  text-decoration: none;
   transition: all 0.3s ease;
+  font-size: 1rem;
 }
 
-.upload-action:hover {
+.nav-btn:hover {
   background-color: #c09871;
   transform: scale(1.05);
 }
 
-.nav-links a:hover {
-  color: #d2b48c;
+.auth-controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.auth-btn {
+  padding: 8px 16px;
+  background-color: #d2b48c;
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+}
+
+.auth-btn:hover {
+  background-color: #c09871;
+  transform: scale(1.05);
 }
 
 .divider {
   margin: 0 5px;
   color: #999;
-}
-
-.greeting {
-  color: #333;
-  font-weight: 500;
 }
 
 .image-grid {
@@ -332,7 +212,6 @@ header {
   align-items: center;
   color: #999;
   font-size: 1rem;
-  cursor: pointer;
 }
 
 .image {
@@ -407,7 +286,7 @@ header {
     gap: 10px;
   }
 
-  .nav-links {
+  .nav-controls {
     flex-wrap: wrap;
     justify-content: center;
   }

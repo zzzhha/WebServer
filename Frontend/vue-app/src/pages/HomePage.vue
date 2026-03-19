@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
+import UserDropdownMenu from '@/components/UserDropdownMenu.vue'
 
 const auth = useAuthStore()
 const { username, token } = storeToRefs(auth)
@@ -14,7 +15,7 @@ const { username, token } = storeToRefs(auth)
       <a v-if="!(username && token)" href="login.html" class="auth-btn">登录</a>
       <span v-if="!(username && token)" class="divider">|</span>
       <a v-if="!(username && token)" href="register.html" class="auth-btn">注册</a>
-      <span v-else class="user-greeting">欢迎您，{{ username }}</span>
+      <UserDropdownMenu v-else :username="username || ''" />
     </div>
   </header>
 
@@ -83,11 +84,6 @@ header {
 .auth-btn:hover {
   background-color: #c09871;
   transform: scale(1.05);
-}
-
-.user-greeting {
-  color: #333;
-  font-size: 1rem;
 }
 
 .divider {
