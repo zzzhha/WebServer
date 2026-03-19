@@ -228,6 +228,12 @@ bool ChunkedDownloadManager::FetchRemoteMetadata() {
   return true;
 }
 
+/**
+ * 调度线程
+ * - 根据当前并发容量挑选待下载分块（NotStarted 或 Failed 且未超最大重试）
+ * - 提交到线程池执行 DownloadOneChunk
+ * - 持久化分块状态到 .meta 文件，检测是否全部完成或失败上限
+ */
 void ChunkedDownloadManager::SchedulerLoop() {
   while (!stop_.load()) {
     if (paused_.load()) {
@@ -299,6 +305,12 @@ void ChunkedDownloadManager::SchedulerLoop() {
   if (pool_) pool_->stop();
 }
 
+/**
+ * 进度线程
+ * - 周期性根据 downloaded_bytes_ 与 total_bytes_ 计算百分比
+ * - 以启动时间计算平均速度 bytes_per_sec 并回调 on_progress
+ * - 在 Paused/Downloading 状态下工作，完成/失败/取消时退出
+ */
 void ChunkedDownloadManager::ProgressLoop() {
   while (!stop_.load()) {
     DownloadState st = state_.load();
@@ -330,6 +342,11 @@ void ChunkedDownloadManager::ProgressLoop() {
   }
 }
 
+/**
+ * 加载 .meta 元数据文件
+ * 验证: url/dest/chunk 大小与当前配置一致；恢复分块状态与重试计数
+ * 返回: 成功/失败；失败表示需要走首次初始化流程
+ */
 bool ChunkedDownloadManager::LoadMetaFile() {
   std::string mp = MetaPath();
   if (!fs::exists(mp)) return false;
@@ -411,6 +428,10 @@ bool ChunkedDownloadManager::LoadMetaFile() {
   return true;
 }
 
+/**
+ * 保存 .meta 元数据文件（原子写入：先写 tmp，再重命名）
+ * 内容: url/dest/total/chunk/md5/chunk_count 以及每个分块的状态与重试次数
+ */
 bool ChunkedDownloadManager::SaveMetaFile() const {
   std::string tmp = MetaPath() + ".tmp";
   std::ofstream out(tmp, std::ios::trunc);
@@ -456,6 +477,11 @@ std::string ChunkedDownloadManager::MetaPath() const {
   return dest_path_ + ".meta";
 }
 
+/**
+ * 磁盘空间校验
+ * - 使用 statvfs 查询可用字节数，与预写入长度比较
+ * - 不足时返回错误并阻止下载
+ */
 bool ChunkedDownloadManager::EnsureDiskSpace(uint64_t bytes_needed, std::string& error) const {
   fs::path p(dest_path_);
   fs::path dir = p.has_parent_path() ? p.parent_path() : fs::current_path();
@@ -472,6 +498,14 @@ bool ChunkedDownloadManager::EnsureDiskSpace(uint64_t bytes_needed, std::string&
   return true;
 }
 
+/**
+ * 下载单个分块
+ * 流程:
+ * - 解析 URL，检查暂停/取消与磁盘空间
+ * - 发送 Range GET，校验状态码与返回体长度
+ * - 将数据写入 .part 文件，更新分块状态并累计进度
+ * - 出错时递增重试计数并持久化
+ */
 bool ChunkedDownloadManager::DownloadOneChunk(uint64_t chunk_index) {
   ChunkInfo ci;
   {
@@ -642,6 +676,12 @@ static std::string ToLowerCopy(std::string s) {
   return s;
 }
 
+/**
+ * 完成收尾
+ * - 合并所有 .part 到临时输出，再重命名到最终文件
+ * - 若配置/响应提供了期望 MD5，则进行校验
+ * - 清理中间文件（.meta 等）
+ */
 bool ChunkedDownloadManager::FinalizeDownload() {
   std::string error;
   if (!MergeParts(error)) {
@@ -658,6 +698,11 @@ bool ChunkedDownloadManager::FinalizeDownload() {
   return true;
 }
 
+/**
+ * 合并分块
+ * - 按分块顺序读取并写入到临时文件（缓冲 64KB）
+ * - 写入失败或分块缺失时中止并返回错误
+ */
 bool ChunkedDownloadManager::MergeParts(std::string& error) {
   std::vector<ChunkInfo> cs;
   {
@@ -721,6 +766,11 @@ bool ChunkedDownloadManager::MergeParts(std::string& error) {
   return true;
 }
 
+/**
+ * MD5 校验
+ * - 计算最终文件 MD5（lowercase hex）并与期望值比较（忽略大小写）
+ * - 若无期望值（服务端未提供），则视为校验通过
+ */
 bool ChunkedDownloadManager::VerifyMd5(std::string& error) {
   auto md5 = FileHashUtil::ComputeFileMd5Hex(dest_path_);
   if (!md5) {
@@ -742,6 +792,11 @@ void ChunkedDownloadManager::CleanupArtifacts() {
   fs::remove(MetaPath(), ec);
 }
 
+/**
+ * 解析 HTTP URL
+ * 格式: http://host[:port]/path
+ * 返回: 成功填充 host/port/path；无端口时默认 80
+ */
 bool ChunkedDownloadManager::ParseUrl(const std::string& url, std::string& host, uint16_t& port, std::string& path) {
   host.clear();
   path.clear();

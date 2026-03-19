@@ -1,5 +1,11 @@
 #include "FileHashUtil.h"
 
+/*
+ * 简述: 使用 OpenSSL EVP 计算文件 MD5（流式读取）
+ * - 采用 64KB 缓冲增量更新，避免一次性读入大文件
+ * - 结果以小写十六进制字符串返回
+ * - 失败路径均返回 std::nullopt
+ */
 #include <fstream>
 
 #include <openssl/evp.h>

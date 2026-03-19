@@ -1,5 +1,11 @@
 #include "SimpleHttpClient.h"
 
+/*
+ * 简述: 轻量级 HTTP/1.1 客户端实现
+ * - 通过 getaddrinfo/connect 建立 TCP 连接，设置收发超时
+ * - 仅构造必要的请求头（HEAD/GET Range），读取并解析响应头与可选的固定长度 body
+ * - 超时与错误通过返回值与 error 字符串反馈
+ */
 #include <arpa/inet.h>
 #include <cstring>
 #include <netdb.h>

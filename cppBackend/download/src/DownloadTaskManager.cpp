@@ -1,5 +1,11 @@
 #include "DownloadTaskManager.h"
 
+/*
+ * 简述: 下载任务管理器实现
+ * - 维护 task_id -> ChunkedDownloadManager 的映射与 user_id -> [task_id] 索引
+ * - 防止同用户重复提交同一 URL（基于 GenerateTaskKey）
+ * - 任务启动/查询/移除的线程安全由内部互斥锁保证
+ */
 #include <algorithm>
 #include <functional>
 #include <filesystem>
