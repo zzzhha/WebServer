@@ -1,6 +1,7 @@
 #pragma once
 #include<functional>
 #include<atomic>
+#include<cstdint>
 #include<any>
 #include<string>
 #include<sys/syscall.h>
@@ -63,6 +64,7 @@ private:
   int tc_fd;
   int tc_timer_id{ -1 };
   std::function<void(spConnection)>updatetimercallback_;  //Connection发送报文后更新定时器，将回调TcpServer::update_conn_timeout_time()
+  std::atomic<uint64_t> timer_generation_{0};
 
 public:
   Connection(EventLoop*loop,std::unique_ptr<Socket>clientsock);
@@ -123,5 +125,8 @@ public:
   int get_timer_id() { return tc_timer_id;}
   void setupdatetimercallback(std::function<void(spConnection)> fn);
   void setclosetimercallback(std::function<void(spConnection)>fn);
+  uint64_t BumpTimerGeneration() { return ++timer_generation_; }
+  uint64_t GetTimerGeneration() const { return timer_generation_.load(); }
+  bool IsDisconnected() const { return disconnect_.load(); }
 
 };

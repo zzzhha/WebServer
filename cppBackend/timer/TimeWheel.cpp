@@ -56,7 +56,11 @@ void TimeWheel::run() {
 }
 
 void TimeWheel::tick(){
-  std::vector<std::weak_ptr<Connection>> weak_conns;
+  struct ExpiredConn {
+    std::weak_ptr<Connection> weak_conn;
+    uint64_t generation;
+  };
+  std::vector<ExpiredConn> expired_conns;
   {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -69,7 +73,7 @@ void TimeWheel::tick(){
         ++it;
       }else{
         if(!it->conn_.expired()){
-          weak_conns.push_back(it->conn_);
+          expired_conns.push_back({it->conn_, it->generation});
         }
         timer_map_.erase(it->fd);
         it = current_list.erase(it);
@@ -77,10 +81,14 @@ void TimeWheel::tick(){
     }
     current_slot_ = (current_slot_ + 1) % slots_;
   }
-  for(auto &weak_conn:weak_conns){
-    if(auto conn=weak_conn.lock()){
+  for(auto &expired_conn:expired_conns){
+    if(auto conn=expired_conn.weak_conn.lock()){
 LOGDEBUG("超时，将关闭操作提交到从事件循环");
-      conn->getLoop()->queueinloop([conn](){
+      const uint64_t generation = expired_conn.generation;
+      conn->getLoop()->queueinloop([conn, generation](){
+        if (conn->GetTimerGeneration() != generation || conn->IsDisconnected()) {
+          return;
+        }
         conn->closecallback();
       });
     }
@@ -91,18 +99,15 @@ void TimeWheel::add_connection(spConnection conn,int timeout){
   add_connection_unsafe(conn, timeout);
 }
 
-void TimeWheel::update_connection(spConnection conn){
+void TimeWheel::update_connection(spConnection conn,int timeout){
   std::lock_guard<std::mutex> lock(mutex_);
   auto it = timer_map_.find(conn->fd());
   if (it != timer_map_.end()) {
-    // 直接操作内部数据结构，而不是调用 remove_connection
     int slot = it->second->slot; 
     wheel_[slot].erase(it->second); 
     timer_map_.erase(it);
-
-    // 直接添加新定时器，而不是调用 add_connection
-    add_connection_unsafe(conn, 360);
   }
+  add_connection_unsafe(conn, timeout);
 }
 
 void TimeWheel::remove_connection(spConnection conn){
@@ -119,6 +124,7 @@ void TimeWheel::add_connection_unsafe(spConnection conn, int timeout) {
   node.fd=conn->fd();
   node.rotation = rotation;
   node.slot = slot;
+  node.generation = conn->BumpTimerGeneration();
   node.conn_ = conn;
 
   wheel_[slot].push_front(node);

@@ -178,5 +178,5 @@ void TcpServer::add_new_conn_timernode(spConnection conn) {
 }
 void TcpServer::update_conn_timeout_time(spConnection conn) {
     // 更新时间轮中的定时器
-    time_wheel_.update_connection(conn);
+    time_wheel_.update_connection(conn, ts_tcp_conn_timeout_s_);
 }

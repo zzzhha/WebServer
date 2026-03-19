@@ -8,6 +8,7 @@
 #include <thread>
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include "../logger/log_fac.h"
 #include "../reactor/Connection.h"
 
@@ -22,7 +23,7 @@ public:
   void stop();
  
   void add_connection(spConnection conn,int timeout);
-  void update_connection(spConnection conn);
+  void update_connection(spConnection conn,int timeout);
   void remove_connection(spConnection conn);
 
 
@@ -31,6 +32,7 @@ private:
     int fd;
     int rotation;
     int slot;
+    uint64_t generation;
     std::weak_ptr<Connection> conn_;
   };
   void tick();
