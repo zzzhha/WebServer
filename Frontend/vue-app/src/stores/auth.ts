@@ -56,9 +56,19 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('csrf_token')
   }
 
+  let storageEventListener: ((event: StorageEvent) => void) | null = null;
+
   function init() {
     hydrateFromStorage()
-    window.addEventListener('storage', hydrateFromStorage)
+    storageEventListener = hydrateFromStorage;
+    window.addEventListener('storage', storageEventListener)
+  }
+
+  function cleanup() {
+    if (storageEventListener) {
+      window.removeEventListener('storage', storageEventListener);
+      storageEventListener = null;
+    }
   }
 
   async function login(input: { username: string; password: string }) {
