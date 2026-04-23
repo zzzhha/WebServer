@@ -15,8 +15,11 @@ public:
   void* allocate(size_t size);  //内存分配
   void deallocate(void* ptr,size_t size);//回收分配的内存
 
+  //线程退出时清理资源
+  ~threadcache();
+
 private:
-  threadcache() =default; //默认构造函数
+  threadcache(); //构造函数
   //从中心缓存中获取内存
   void *fetchFromCentralCache(size_t index);
   //归还内存到中心缓存
@@ -29,6 +32,8 @@ private:
   void deallocateMedium(void* ptr, size_t size);
   void* allocateLarge(size_t size);
   void deallocateLarge(void* ptr, size_t size);
+  //线程退出时归还所有内存
+  void returnAllToCentralCache();
 
   //每个线程的自由链表数组 FREE_LIST_SIZE= 256*1024/8
   //内存块链表的头指针数组

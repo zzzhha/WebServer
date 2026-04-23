@@ -50,5 +50,6 @@ private:
   size_t headerBytes_ = 0;
   size_t bodyTotalReceived_ = 0;
   size_t maxTotalHeaderBytes_ = 16 * 1024;
+  size_t maxLineBufferSize_ = 8 * 1024; // 行缓冲区最大大小，默认8KB
   std::unordered_set<std::string> allowedTrailerKeys_;
 };

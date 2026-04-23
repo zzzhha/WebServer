@@ -105,6 +105,18 @@ HttpServerResult HttpFacade::Process(const std::string& raw_data,
     return HttpServerResult::SUCCESS;
 }
 
+void HttpFacade::SetMaxPendingSize(size_t max_size) {
+    max_pending_size_ = max_size;
+}
+
+size_t HttpFacade::GetMaxPendingSize() const {
+    return max_pending_size_;
+}
+
+bool HttpFacade::IsPendingFull() const {
+    return pending_data_.size() >= max_pending_size_;
+}
+
 // SSL处理阶段：处理SSL/TLS加密解密
 HttpServerResult HttpFacade::ProcessSsl(const std::string& raw_data,
                                       std::string& processed_data) {
@@ -457,4 +469,141 @@ size_t HttpFacade::GetConsumedBytes() const {
         return parser_->GetConsumeBytes();
     }
     return 0;
+}
+
+// Pending 缓冲管理方法实现
+void HttpFacade::AppendPending(std::string&& data) {
+    // 检查缓冲区大小限制
+    if (pending_data_.size() + data.size() > max_pending_size_) {
+        // 缓冲区已满，清除旧数据以腾出空间
+        if (data.size() > max_pending_size_) {
+            // 如果单次数据就超过最大限制，只保留最新数据
+            pending_data_.clear();
+            pending_data_.append(data.substr(0, max_pending_size_));
+        } else {
+            // 计算需要清除的旧数据量
+            size_t overflow = (pending_data_.size() + data.size()) - max_pending_size_;
+            if (overflow > 0) {
+                pending_data_.erase(0, overflow);
+            }
+            pending_data_.append(std::move(data));
+        }
+    } else {
+        pending_data_.append(std::move(data));
+    }
+}
+
+void HttpFacade::AppendPending(const std::string& data) {
+    // 检查缓冲区大小限制
+    if (pending_data_.size() + data.size() > max_pending_size_) {
+        // 缓冲区已满，清除旧数据以腾出空间
+        if (data.size() > max_pending_size_) {
+            // 如果单次数据就超过最大限制，只保留最新数据
+            pending_data_.clear();
+            pending_data_.append(data.substr(0, max_pending_size_));
+        } else {
+            // 计算需要清除的旧数据量
+            size_t overflow = (pending_data_.size() + data.size()) - max_pending_size_;
+            if (overflow > 0) {
+                pending_data_.erase(0, overflow);
+            }
+            pending_data_.append(data);
+        }
+    } else {
+        pending_data_.append(data);
+    }
+}
+
+void HttpFacade::ErasePending(size_t len) {
+    if (len >= pending_data_.size()) {
+        pending_data_.clear();
+    } else {
+        pending_data_.erase(0, len);
+    }
+}
+
+size_t HttpFacade::GetPendingSize() const {
+    return pending_data_.size();
+}
+
+void HttpFacade::ClearPending() {
+    pending_data_.clear();
+}
+
+HttpServerResult HttpFacade::ProcessPending(std::unique_ptr<IHttpMessage>& out_message,
+                                            HttpResponse& out_response) {
+    HttpError ignored;
+    return ProcessPending(out_message, out_response, ignored);
+}
+
+HttpServerResult HttpFacade::ProcessPending(std::unique_ptr<IHttpMessage>& out_message,
+                                            HttpResponse& out_response,
+                                            HttpError& out_error) {
+    has_error_ = false;
+    last_error_ = HttpError{};
+
+    if (pending_data_.empty()) {
+        last_error_.code = HttpErrc::PARSE_EMPTY_INPUT;
+        last_error_.status = HttpStatusCode::BAD_REQUEST;
+        last_error_.message = "Bad Request";
+        last_error_.ctx.stage = HttpErrorStage::PARSING;
+        last_error_.ctx.detail = "empty pending buffer";
+        has_error_ = true;
+        out_error = last_error_;
+        return HttpServerResult::NEED_MORE_DATA;
+    }
+
+    std::string processed_data;
+
+    // 1. SSL处理阶段
+    HttpServerResult ssl_result = ProcessSsl(pending_data_, processed_data);
+    if (ssl_result != HttpServerResult::SUCCESS) {
+        if (ssl_result == HttpServerResult::SSL_HANDSHAKE_FAILED) {
+            last_error_.code = HttpErrc::SSL_HANDSHAKE_FAILED;
+            last_error_.status = HttpStatusCode::BAD_REQUEST;
+            last_error_.message = "SSL Handshake Failed";
+            last_error_.ctx.stage = HttpErrorStage::SSL;
+            last_error_.ctx.received_bytes = pending_data_.size();
+            has_error_ = true;
+        }
+        out_error = last_error_;
+        return ssl_result;
+    }
+
+    // 2. HTTP解析阶段（直接在 pending_data_ 上解析）
+    HttpServerResult parse_result = ProcessParsing(processed_data, out_message);
+    if (parse_result != HttpServerResult::SUCCESS || !out_message) {
+        out_error = last_error_;
+        return parse_result;
+    }
+
+    // 3. 责任链验证阶段
+    if (!handler_chain_) {
+        last_error_.code = HttpErrc::INTERNAL_ERROR;
+        last_error_.status = HttpStatusCode::INTERNAL_SERVER_ERROR;
+        last_error_.message = "Internal Server Error";
+        last_error_.ctx.stage = HttpErrorStage::VALIDATION;
+        last_error_.stack = CaptureStackTrace();
+        has_error_ = true;
+        out_error = last_error_;
+        return HttpServerResult::VALIDATION_FAILED;
+    }
+    HttpServerResult validation_result = ProcessValidation(*out_message, out_response);
+    if (validation_result != HttpServerResult::SUCCESS) {
+        out_error = last_error_;
+        return validation_result;
+    }
+
+    // 4. 路由处理阶段
+    HttpServerResult routing_result = ProcessRouting(*out_message, out_response);
+    if (routing_result != HttpServerResult::SUCCESS) {
+        out_error = last_error_;
+        return routing_result;
+    }
+
+    // 5. 通知观察者
+    NotifyObservers(*out_message);
+
+    out_error = last_error_;
+    return HttpServerResult::SUCCESS;
 }

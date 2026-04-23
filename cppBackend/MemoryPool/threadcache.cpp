@@ -169,3 +169,31 @@ void* threadcache::allocateLarge(size_t size){
 void threadcache::deallocateLarge(void* ptr, size_t size){
   pageCache::getInstance().deallocateLarge(ptr, size);
 }
+
+threadcache::threadcache() {
+  //初始化自由链表和计数器
+  freeList_.fill(nullptr);
+  freeListSize_.fill(0);
+}
+
+threadcache::~threadcache() {
+  //线程退出时归还所有内存
+  returnAllToCentralCache();
+}
+
+void threadcache::returnAllToCentralCache() {
+  //遍历所有自由链表，将内存归还给中心缓存
+  for (size_t i = 0; i < FREE_LIST_SIZE; ++i) {
+    if (freeListSize_[i] > 0 && freeList_[i] != nullptr) {
+      size_t size = (i + 1) * ALIGNMENT;
+      size_t alignedSize = sizeclass::roundUp(size);
+      size_t returnNum = freeListSize_[i];
+      
+      if (returnNum > 0) {
+        centralCache::getInstance().returnRange(freeList_[i], returnNum * alignedSize, i);
+        freeList_[i] = nullptr;
+        freeListSize_[i] = 0;
+      }
+    }
+  }
+}

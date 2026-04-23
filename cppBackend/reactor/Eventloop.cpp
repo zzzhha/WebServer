@@ -89,18 +89,22 @@ void EventLoop::wakeup(){
 }
 
 void EventLoop::handlewakeup(){
-  //printf("handlewakeup() thread is %d\n",syscall(SYS_gettid));
 LOGDEBUG("处理因事件管道唤起的事件");
   uint64_t val;
   read(wakeupfd_,&val,sizeof(val)); //从eventfd读出数据，如果不读，则会一直触发eventfd的读事件
-  std::function<void()> fn;
-  std::lock_guard<std::mutex> lock(mutex_);
-  while(taskqueue_.size()>0){
-      fn=std::move(taskqueue_.front());
-      taskqueue_.pop();
-      fn();       //执行任务
+  
+  
+  std::queue<std::function<void()>> tasks;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    tasks = std::move(taskqueue_);
   }
   
+  while(!tasks.empty()){
+    auto fn = std::move(tasks.front());
+    tasks.pop();
+    fn();
+  }
 }
 
 //时间戳

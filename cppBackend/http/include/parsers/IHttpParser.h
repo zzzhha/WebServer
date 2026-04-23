@@ -13,7 +13,8 @@ enum class ParseResult{
   INVALIDHEADER = -3,
   HEADERTOOLONG = -4,
   BODYTOOLONG = -5,
-  UNSUPPORTEDVERSION = -6
+  LINE_TOO_LONG = -6,
+  UNSUPPORTEDVERSION = -7
 };
 
 // enum class ParseErrorType {

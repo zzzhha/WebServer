@@ -20,6 +20,8 @@ private:
   std::function<void()> closecallback_; //关闭fd_的回调函数,将回调connection::closecallback()
   std::function<void()> errorcallback_; //fd_发生了错误的回调函数,将回调connection::errorcallback()
   std::function<void()> writecallback_; //想客户端写入数据,回调Connection::writecallback()
+  std::weak_ptr<void> tie_;
+  bool tied_ = false;
 
 public:
   Channel(EventLoop*loop,int fd);//构造函数
@@ -41,7 +43,7 @@ public:
   void setclosecallback(std::function<void()> fn);  //设置fd_关闭的回调函数
   void seterrorcallback(std::function<void()> fn);  //设置fd_发生错误的回调函数
   void setwritecallback(std::function<void()> fn);  //设置写事件的回调函数
-  
+  void tie(const std::shared_ptr<void>& obj);      //绑定channel和connection,防止channel被提前析构
   void handleevent();           //事件处理函数，epoll_wait()返回后调用执行此函数
 
   

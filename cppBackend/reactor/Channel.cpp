@@ -3,8 +3,6 @@ Channel::Channel(EventLoop*loop,int fd):fd_(fd),loop_(loop){
 }
 
 Channel::~Channel(){
-  //在析构函数中，不要销毁loop_,也不能关闭fd_;
-  //这俩不属于Channel类，只是构造函数挪过来使用它们而已；
 }
 
 int Channel::fd(){
@@ -36,8 +34,8 @@ void Channel::disableall(){
   loop_->updatechannel(this);
 }
 void Channel::remove(){
-  disableall();   //先取消全部事件
-  loop_->removechannel(this); //从epoll树上删除fd
+  disableall();
+  loop_->removechannel(this);
 }
 void Channel::Channel::setinepoll(){
   inepoll_=true;
@@ -59,7 +57,7 @@ void Channel::setreadcallback(std::function<void()> fn){
 }
 void Channel::setclosecallback(std::function<void()> fn){
   closecallback_=fn;
-}  //设置fd_关闭的回调函数
+}
 void Channel::seterrorcallback(std::function<void()> fn){
   errorcallback_=fn;
 }
@@ -67,25 +65,38 @@ void Channel::setwritecallback(std::function<void()> fn){
   writecallback_=fn;
 }
 
+void Channel::tie(const std::shared_ptr<void>& obj){
+  tie_ = obj;
+  tied_ = true;
+}
+
 
 void Channel::handleevent(){
+  std::shared_ptr<void> guard;
+  if(tied_){
+    guard = tie_.lock();
+    if(!guard){
+      return;
+    }
+  }
+
   if (revents_ & (EPOLLERR | EPOLLHUP)) {
-    errorcallback_();
+    if(errorcallback_) errorcallback_();
     return;
   }
 
   if (revents_ & (EPOLLIN | EPOLLPRI)) {
     LOGDEBUG("发生读事件");
-    readcallback_();
+    if(readcallback_) readcallback_();
   }
 
   if (revents_ & EPOLLOUT) {
     LOGDEBUG("发生写事件");
-    writecallback_();
+    if(writecallback_) writecallback_();
   }
 
   if (revents_ & EPOLLRDHUP) {
-    closecallback_();
+    if(closecallback_) closecallback_();
   }
 }
 

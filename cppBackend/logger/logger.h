@@ -9,6 +9,7 @@
 #include<queue>
 #include<condition_variable>
 #include<vector>
+#include<cstdint>
 enum class Xlog {
 	DEBUG,
 	INFO,
@@ -88,5 +89,8 @@ private:
 	size_t batch_size_{100};
 	//处理的日志总数
 	std::atomic<size_t> total_processed_{0};
+	std::atomic<size_t> total_dropped_{0};
+	std::atomic<size_t> dropped_pending_{0};
+	std::atomic<std::int64_t> last_drop_report_ms_{0};
 };
 

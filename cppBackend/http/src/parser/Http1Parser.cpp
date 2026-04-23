@@ -52,6 +52,13 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
         size_t lineEnd = data.find("\r\n", consumed);
         if (lineEnd == std::string::npos) {
           // 不完整行，缓存后返回 NEEDMOREDATA
+          // 检查行缓冲区大小限制
+          size_t remaining = data.size() - consumed;
+          if (lineBuffer_.size() + remaining > maxLineBufferSize_) {
+            // 行缓冲区已满，返回错误
+            res = ParseResult::LINE_TOO_LONG;
+            break;
+          }
           lineBuffer_.append(data.begin() + consumed, data.end());
           consumed = data.size();
           res = ParseResult::NEEDMOREDATA;
@@ -59,6 +66,13 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
         }
 
         // 取出一行（包含可能之前缓存的残留）
+        // 检查行缓冲区大小限制
+        size_t lineLength = lineEnd - consumed;
+        if (lineBuffer_.size() + lineLength > maxLineBufferSize_) {
+          // 行缓冲区已满，返回错误
+          res = ParseResult::LINE_TOO_LONG;
+          break;
+        }
         lineBuffer_.append(data.begin() + consumed, data.begin() + lineEnd);
         std::string line = std::move(lineBuffer_);
         lineBuffer_.clear();
@@ -238,9 +252,23 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
         // 解析 trailer，直到空行结束
         size_t lineEnd = data.find("\r\n", consumed);
         if (lineEnd == std::string::npos) {
+          // 检查行缓冲区大小限制
+          size_t remaining = data.size() - consumed;
+          if (lineBuffer_.size() + remaining > maxLineBufferSize_) {
+            // 行缓冲区已满，返回错误
+            res = ParseResult::LINE_TOO_LONG;
+            break;
+          }
           lineBuffer_.append(data.begin() + consumed, data.end());
           consumed = data.size();
           res = ParseResult::NEEDMOREDATA;
+          break;
+        }
+        // 检查行缓冲区大小限制
+        size_t lineLength = lineEnd - consumed;
+        if (lineBuffer_.size() + lineLength > maxLineBufferSize_) {
+          // 行缓冲区已满，返回错误
+          res = ParseResult::LINE_TOO_LONG;
           break;
         }
         lineBuffer_.append(data.begin() + consumed, data.begin() + lineEnd);
@@ -330,7 +358,9 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
 }
 
 int Http1Parser::Parse(const char* data, size_t len, std::unique_ptr<IHttpMessage>& out) {
-  std::string buf(data, data + len);
+  std::string buf;
+  buf.reserve(len);
+  buf.append(data, len);
   return Parse(buf, out);
 }
 

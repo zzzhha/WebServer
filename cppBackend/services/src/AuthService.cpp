@@ -120,14 +120,14 @@ std::optional<AuthService::LoginResult> AuthService::HandleLogin(const std::stri
     }
 
     // 登录成功，生成JWT token
-    std::string access_token = JwtUtil::GenerateToken(username, userInfo->id);
+    std::string access_token = JwtUtil::GenerateToken(username, userInfo->id, JwtUtil::TokenType::ACCESS);
     if (access_token.empty()) {
         LOGERROR("登录成功但生成token失败：用户名 = " + username);
         return std::nullopt;
     }
 
     // 生成refresh_token
-    std::string refresh_token = JwtUtil::GenerateToken(username, userInfo->id);
+    std::string refresh_token = JwtUtil::GenerateToken(username, userInfo->id, JwtUtil::TokenType::REFRESH);
     if (refresh_token.empty()) {
         LOGERROR("登录成功但生成refresh_token失败：用户名 = " + username);
         return std::nullopt;

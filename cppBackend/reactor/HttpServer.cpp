@@ -20,17 +20,22 @@
 #include"../views/include/PicturePageHandler.h"
 #include"../views/include/VideoPageHandler.h"
 #include"../views/include/IPageHandler.h"
+#include"RouteMetricsUtil.h"
 #include<algorithm>
 #include<cerrno>
 #include<cstring>
 #include<fcntl.h>
+#include<unistd.h>
 #include<sstream>
 #include<atomic>
+#include<chrono>
 
 HttpServer::HttpServer(const std::string &ip,uint16_t port,int timeoutS,bool OptLinger,
                        int sqlPort,const char*sqlUser,const char*sqlPwd,const char*dbName,
                        int subthreadnum,int workthreadnum,int connpoolnum,const std::string&static_path)
-      :tcpserver_(ip,port,subthreadnum,timeoutS,OptLinger),threadpool_(workthreadnum,"WORKS"),static_path_(static_path)
+      :tcpserver_(ip,port,subthreadnum,timeoutS,OptLinger),
+       threadpool_(std::max(1, workthreadnum),"WORKS"),
+       static_path_(static_path)
 {
   // 以下代码不是必须的，业务关心什么事件，就指定相应的回调函数。
   tcpserver_.setnewconnection(std::bind(&HttpServer::HandleNewConnection, this, std::placeholders::_1));
@@ -44,6 +49,9 @@ HttpServer::HttpServer(const std::string &ip,uint16_t port,int timeoutS,bool Opt
   router_ = std::make_shared<Router>();
   SetupRoutes(*router_);
   tls_ctx_ = TlsContext::CreateFromEnv();
+  if (workthreadnum <= 0) {
+    LOGWARNING("workthreadnum<=0，已自动调整为1，避免任务无人消费");
+  }
 }
 HttpServer::~HttpServer(){
 
@@ -67,11 +75,12 @@ void HttpServer::HandleNewConnection(spConnection conn){
     if (tls_ctx_) {
       conn->SetTlsContext(tls_ctx_);
     }
-    auto facade = std::make_shared<HttpFacade>();
+    auto ctx = std::make_shared<ConnectionWorkContext>();
+    ctx->facade = std::make_shared<HttpFacade>();
     if (router_) {
-      facade->SetRouter(router_);
+      ctx->facade->SetRouter(router_);
     }
-    conn->SetContext(std::move(facade));
+    conn->SetContext(std::move(ctx));
   }
 }
 void HttpServer::HandleClose(spConnection conn){
@@ -80,8 +89,7 @@ void HttpServer::HandleClose(spConnection conn){
 void HttpServer::HandleError(spConnection conn){
   LOGERROR("connection error(fd="+std::to_string(conn->fd())+",ip="+conn->ip()+",port="+std::to_string(conn->port())+ ")");
 }
-void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock& buffer*/){
-  // 检查连接是否为空
+void HttpServer::HandleMessage(spConnection conn){
   if (!conn) {
     LOGERROR("连接为空，无法处理消息");
     return;
@@ -89,148 +97,221 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
   
   LOGINFO("处理了(fd="+std::to_string(conn->fd())+",ip="+conn->ip()+",port="+std::to_string(conn->port())+")的数据.");
   
-  // 获取连接的输入缓冲区和输出缓冲区
   BufferBlock& inputbuffer = conn->getInputBuffer();
-  BufferBlock& outputbuffer = conn->getOutputBuffer();
-  
-  // 检查缓冲区是否有可读数据
   size_t readable_bytes = inputbuffer.readableBytes();
   if (readable_bytes == 0) {
     LOGINFO("缓冲区无数据，跳过处理");
     return;
   }
-  
-  
-  // 将缓冲区数据转换为字符串供解析器使用
-  std::string request_data = inputbuffer.bufferToString();
-  if(request_data.empty()) {
-    LOGERROR("请求数据为空，无法处理");
+
+  std::shared_ptr<ConnectionWorkContext> ctx;
+  if (auto* existing = conn->GetContext<std::shared_ptr<ConnectionWorkContext>>(); existing && *existing) {
+    ctx = *existing;
+  } else {
+    ctx = std::make_shared<ConnectionWorkContext>();
+    ctx->facade = std::make_shared<HttpFacade>();
+    if (router_) {
+      ctx->facade->SetRouter(router_);
+    }
+    conn->SetContext(ctx);
+  }
+
+  std::string new_data = inputbuffer.bufferToString();
+  inputbuffer.consumeBytes(readable_bytes);
+
+  if (threadpool_.queue_size() > max_work_queue_depth_) {
+    LOGERROR("工作队列过长，触发背压 fd=" + std::to_string(conn->fd()) +
+             " queue_size=" + std::to_string(threadpool_.queue_size()));
+    SendServiceUnavailable(conn, "work queue overloaded");
     return;
   }
-  
-  std::shared_ptr<HttpFacade> facade;
-  if (auto* ctx = conn->GetContext<std::shared_ptr<HttpFacade>>(); ctx && *ctx) {
-    facade = *ctx;
-  } else {
-    facade = std::make_shared<HttpFacade>();
-    if (router_) {
-      facade->SetRouter(router_);
+
+  bool should_start_worker = false;
+  {
+    std::lock_guard<std::mutex> lock(ctx->mutex);
+    if (ctx->queued_bytes + new_data.size() > max_conn_pending_bytes_) {
+      LOGERROR("连接待处理数据过大，触发背压 fd=" + std::to_string(conn->fd()) +
+               " queued_bytes=" + std::to_string(ctx->queued_bytes + new_data.size()));
+      SendServiceUnavailable(conn, "connection pending data overloaded");
+      ctx->queued_chunks.clear();
+      ctx->pending_results.clear();
+      ctx->queued_bytes = 0;
+      ctx->last_applied_response_seq = 0;
+      ctx->next_response_seq = 1;
+      ctx->next_enqueue_seq = 1;
+      ctx->facade->ClearPending();
+      return;
     }
-    conn->SetContext(facade);
+    PendingChunk chunk;
+    chunk.data = std::move(new_data);
+    chunk.enqueue_seq = ctx->next_enqueue_seq++;
+    chunk.enqueue_tp = std::chrono::steady_clock::now();
+    ctx->queued_bytes += chunk.data.size();
+    ctx->queued_chunks.push_back(std::move(chunk));
+    if (!ctx->worker_running) {
+      ctx->worker_running = true;
+      should_start_worker = true;
+    }
   }
-  
-  // 创建响应对象
-  HttpResponse response;
-  
-  // 使用HttpFacade处理HTTP请求
-  std::unique_ptr<IHttpMessage> message;
-  static std::atomic<uint64_t> request_seq{0};
-  const std::string request_id = std::to_string(conn->fd()) + "-" + std::to_string(request_seq.fetch_add(1, std::memory_order_relaxed));
 
-  HttpError err;
-  HttpServerResult result = facade->Process(request_data, message, response, err);
-  
-  if (result == HttpServerResult::SUCCESS && message) {
-    // 解析成功，消费已解析的字节数
-    size_t consumed_bytes = facade->GetConsumedBytes();
-    inputbuffer.consumeBytes(consumed_bytes);
-    
-    // 确保这是一个请求消息
-    if (!message->IsRequest()) {
-      LOGERROR("收到的不是HTTP请求消息");
+  if (!should_start_worker) {
+    return;
+  }
+
+  std::weak_ptr<Connection> weak_conn = conn;
+  threadpool_.addtask([this, weak_conn, ctx]() mutable {
+    HandleMessageInWorker(std::move(weak_conn), std::move(ctx));
+  });
+}
+
+void HttpServer::HandleMessageInWorker(std::weak_ptr<Connection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx) {
+  while (true) {
+    auto conn = weak_conn.lock();
+    if (!conn || conn->IsDisconnected()) {
+      std::lock_guard<std::mutex> lock(ctx->mutex);
+      ctx->worker_running = false;
       return;
     }
-    
-    // 转换为 HttpRequest 对象
-    HttpRequest* request = dynamic_cast<HttpRequest*>(message.get());
-    if (!request) {
-      LOGERROR("无法将消息转换为HttpRequest");
-      return;
-    }
-    
-    // 获取请求路径和方法
-    std::string path = request->GetPath();
-    std::string method = request->GetMethodString();
-    
-    LOGINFO("请求方法: " + method + ", 路径: " + path);
-    
-    // 判断是否为 keep-alive 连接
-    bool keep_alive = false;
-    auto connection_header = request->GetHeader("Connection");
-    if (connection_header.has_value()) {
-      std::string conn_value = connection_header.value();
-      LowerAsciiInPlace(conn_value);
-      keep_alive = (conn_value == "keep-alive");
-    }
-    
-    // 处理请求并生成响应
-    ProcessRequest(request, response);
-    ApplyCorsHeaders(response, request);
-    ApplyCommonResponseHeaders(response, request_id);
-    
-    // 设置响应头
-    if (keep_alive) {
-      response.SetHeader("Connection", "keep-alive");
-    } else {
-      response.SetHeader("Connection", "close");
-      conn->setCloseOnSendComplete(true);
-    }
 
-    if(response.HasSendFile()){
-      int file_fd = ::open(response.GetSendFilePath().c_str(), O_RDONLY | O_CLOEXEC);
-      if(file_fd < 0){
-        int e = errno;
-        response.ClearSendFile();
-        response.SetHeader("Content-Type", "text/plain");
-        if(e == EACCES){
-          response.SetStatusCode(HttpStatusCode::FORBIDDEN);
-          response.SetBody("Forbidden");
-        }else{
-          response.SetStatusCode(HttpStatusCode::INTERNAL_SERVER_ERROR);
-          response.SetBody("Internal Server Error");
-        }
-      }else{
-        response.SetBody("");
-        std::string response_data = response.Serialize();
-        outputbuffer.append(response_data.c_str(), response_data.size());
-        conn->StartSendFile(file_fd, static_cast<off_t>(response.GetSendFileOffset()),
-                            static_cast<size_t>(response.GetSendFileLength()), true);
-        conn->send();
-        LOGINFO("HTTP响应已发送(文件) - 状态码: " + std::to_string(response.getStatusCodeInt()) +" 头部大小: " + std::to_string(response_data.size()));
+    PendingChunk chunk;
+    bool has_chunk = false;
+    {
+      std::lock_guard<std::mutex> lock(ctx->mutex);
+      if (!ctx->queued_chunks.empty()) {
+        chunk = std::move(ctx->queued_chunks.front());
+        ctx->queued_chunks.pop_front();
+        ctx->queued_bytes -= chunk.data.size();
+        has_chunk = true;
+      } else {
+        ctx->worker_running = false;
         return;
       }
     }
-    
-    // 序列化响应
-    std::string response_data = response.Serialize();
-    
-    // 检查响应数据是否为空
-    if (response_data.empty()) {
-      LOGERROR("响应数据为空，无法发送响应");
-      // 设置默认的404响应
-      response.SetStatusCode(HttpStatusCode::NOT_FOUND);
-      response.SetHeader("Content-Type", "text/plain");
-      response.SetHeader("Connection", "close");
-      response.SetBody("Not Found");
-      response_data = response.Serialize();
+
+    if (has_chunk && !chunk.data.empty()) {
+      ctx->facade->AppendPending(std::move(chunk.data));
     }
-    
-    // 将响应数据写入输出缓冲区
-    outputbuffer.append(response_data.c_str(), response_data.size());
-    
-    // 发送响应
-    conn->send();
-    LOGINFO("HTTP响应已发送 - 状态码: " + std::to_string(response.getStatusCodeInt()) +" 响应数据大小: " + std::to_string(response_data.size()));
-    
-    // 注意：不再立即关闭连接，而是等待数据发送完毕后通过回调函数关闭
-    // 连接的关闭由Connection::writecallback方法在数据发送完毕后处理
-    // 如果不是 keep-alive，Connection会在数据发送完毕后自动关闭
-    
-  } else if (result == HttpServerResult::NEED_MORE_DATA) {
-    // 需要更多数据，等待下次接收
-    LOGINFO("HTTP请求数据不完整，等待更多数据");
-  } else {
-    // 处理错误
+
+    auto worker_begin = std::chrono::steady_clock::now();
+
+    HttpResponse response;
+    std::unique_ptr<IHttpMessage> message;
+    HttpError err;
+    auto parse_begin = std::chrono::steady_clock::now();
+    HttpServerResult result = ctx->facade->ProcessPending(message, response, err);
+    auto parse_end = std::chrono::steady_clock::now();
+
+    if (result == HttpServerResult::NEED_MORE_DATA) {
+      LOGINFO("HTTP请求数据不完整，等待更多数据");
+      continue;
+    }
+
+    WorkResult work_result;
+    work_result.parse_route_ms = std::chrono::duration_cast<std::chrono::milliseconds>(parse_end - parse_begin).count();
+
+    if (result == HttpServerResult::SUCCESS && message) {
+      size_t consumed_bytes = ctx->facade->GetConsumedBytes();
+      ctx->facade->ErasePending(consumed_bytes);
+
+      if (!message->IsRequest()) {
+        LOGERROR("收到的不是HTTP请求消息");
+        continue;
+      }
+
+      HttpRequest* request = dynamic_cast<HttpRequest*>(message.get());
+      if (!request) {
+        LOGERROR("无法将消息转换为HttpRequest");
+        continue;
+      }
+
+      const std::string request_id =
+          std::to_string(conn->fd()) + "-" +
+          std::to_string(request_seq_.fetch_add(1, std::memory_order_relaxed));
+
+      std::string path = request->GetPath();
+      std::string method = request->GetMethodString();
+      work_result.method = method;
+      work_result.path = path;
+      work_result.route_bucket = ClassifyRouteBucket(path);
+      work_result.is_download = IsDownloadRoute(path);
+      LOGINFO("请求方法: " + method + ", 路径: " + path);
+
+      auto business_begin = std::chrono::steady_clock::now();
+      bool keep_alive = false;
+      auto connection_header = request->GetHeader("Connection");
+      if (connection_header.has_value()) {
+        std::string conn_value = connection_header.value();
+        LowerAsciiInPlace(conn_value);
+        keep_alive = (conn_value == "keep-alive");
+      }
+
+      ProcessRequest(request, response);
+      ApplyCorsHeaders(response, request);
+      ApplyCommonResponseHeaders(response, request_id);
+
+      if (keep_alive) {
+        response.SetHeader("Connection", "keep-alive");
+      } else {
+        response.SetHeader("Connection", "close");
+        work_result.close_after_send = true;
+      }
+
+      if (response.HasSendFile()) {
+        int file_fd = ::open(response.GetSendFilePath().c_str(), O_RDONLY | O_CLOEXEC);
+        if (file_fd < 0) {
+          int e = errno;
+          response.ClearSendFile();
+          response.SetHeader("Content-Type", "text/plain");
+          if (e == EACCES) {
+            response.SetStatusCode(HttpStatusCode::FORBIDDEN);
+            response.SetBody("Forbidden");
+          } else {
+            response.SetStatusCode(HttpStatusCode::INTERNAL_SERVER_ERROR);
+            response.SetBody("Internal Server Error");
+          }
+        } else {
+          response.SetBody("");
+          work_result.has_sendfile = true;
+          work_result.sendfile_fd = file_fd;
+          work_result.sendfile_offset = static_cast<off_t>(response.GetSendFileOffset());
+          work_result.sendfile_length = static_cast<size_t>(response.GetSendFileLength());
+          work_result.sendfile_bytes = work_result.sendfile_length;
+        }
+      }
+      auto business_end = std::chrono::steady_clock::now();
+      work_result.business_ms = std::chrono::duration_cast<std::chrono::milliseconds>(business_end - business_begin).count();
+
+      auto serialize_begin = std::chrono::steady_clock::now();
+      std::string response_data = response.Serialize();
+      auto serialize_end = std::chrono::steady_clock::now();
+      work_result.serialize_ms = std::chrono::duration_cast<std::chrono::milliseconds>(serialize_end - serialize_begin).count();
+      if (response_data.empty()) {
+        LOGERROR("响应数据为空，无法发送响应");
+        response.SetStatusCode(HttpStatusCode::NOT_FOUND);
+        response.SetHeader("Content-Type", "text/plain");
+        response.SetHeader("Connection", "close");
+        response.SetBody("Not Found");
+        response_data = response.Serialize();
+        work_result.close_after_send = true;
+      }
+
+      work_result.has_response = true;
+      work_result.response_data = std::move(response_data);
+      work_result.request_id = request_id;
+      {
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+        work_result.response_seq = ctx->next_response_seq++;
+      }
+      if (has_chunk) {
+        work_result.queue_wait_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            worker_begin - chunk.enqueue_tp).count();
+      }
+      work_result.worker_exec_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - worker_begin).count();
+      PostResultToIoLoop(weak_conn, ctx, std::move(work_result));
+      continue;
+    }
+
     if (err.IsOk()) {
       err.code = HttpErrc::INTERNAL_ERROR;
       err.status = HttpStatusCode::INTERNAL_SERVER_ERROR;
@@ -239,6 +320,17 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
       err.ctx.detail = "missing error details";
     }
 
+    const std::string request_id =
+        std::to_string(conn->fd()) + "-" +
+        std::to_string(request_seq_.fetch_add(1, std::memory_order_relaxed));
+    work_result.is_error = true;
+    work_result.route_bucket = "parse_error";
+    if (auto* req = dynamic_cast<HttpRequest*>(message.get())) {
+      work_result.method = req->GetMethodString();
+      work_result.path = req->GetPath();
+      work_result.route_bucket = ClassifyRouteBucket(work_result.path);
+      work_result.is_download = IsDownloadRoute(work_result.path);
+    }
     LOGERROR("HTTP请求处理失败 request_id=" + request_id +
              " fd=" + std::to_string(conn->fd()) +
              " ip=" + conn->ip() +
@@ -247,6 +339,7 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
              " code=" + ToString(err.code) +
              " stage=" + ToString(err.ctx.stage) +
              (err.ctx.detail.empty() ? "" : " detail=" + err.ctx.detail));
+
     if (err.IsServerError() && !err.stack.empty()) {
       std::string stack = err.stack;
       if (stack.size() > 2048) stack.resize(2048);
@@ -263,11 +356,191 @@ void HttpServer::HandleMessage(spConnection conn/*暂且先注释了等后面需
     }
     ApplyCommonResponseHeaders(*error_resp, request_id);
     error_resp->SetHeader("Connection", "close");
-    std::string error_data = error_resp->Serialize();
-    outputbuffer.append(error_data.c_str(), error_data.size());
-    conn->setCloseOnSendComplete(true);
-    conn->send();
+
+    auto serialize_begin = std::chrono::steady_clock::now();
+    work_result.has_response = true;
+    work_result.close_after_send = true;
+    work_result.response_data = error_resp->Serialize();
+    auto serialize_end = std::chrono::steady_clock::now();
+    work_result.serialize_ms = std::chrono::duration_cast<std::chrono::milliseconds>(serialize_end - serialize_begin).count();
+    work_result.business_ms = std::chrono::duration_cast<std::chrono::milliseconds>(serialize_begin - parse_end).count();
+    work_result.request_id = request_id;
+    {
+      std::lock_guard<std::mutex> lock(ctx->mutex);
+      work_result.response_seq = ctx->next_response_seq++;
+    }
+    if (has_chunk) {
+      work_result.queue_wait_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+          worker_begin - chunk.enqueue_tp).count();
+    }
+    work_result.worker_exec_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - worker_begin).count();
+    PostResultToIoLoop(weak_conn, ctx, std::move(work_result));
+    ctx->facade->ClearPending();
   }
+}
+
+void HttpServer::PostResultToIoLoop(std::weak_ptr<Connection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx, WorkResult result) {
+  auto conn = weak_conn.lock();
+  if (!conn || conn->IsDisconnected()) {
+    if (result.sendfile_fd >= 0) {
+      ::close(result.sendfile_fd);
+    }
+    return;
+  }
+
+  EventLoop* io_loop = conn->getLoop();
+  result.io_enqueue_tp = std::chrono::steady_clock::now();
+  io_loop->queueinloop([this, weak_conn, ctx, result = std::move(result)]() mutable {
+    auto strong_conn = weak_conn.lock();
+    if (!strong_conn || strong_conn->IsDisconnected()) {
+      if (result.sendfile_fd >= 0) {
+        ::close(result.sendfile_fd);
+      }
+      return;
+    }
+
+    auto apply_result = [&strong_conn](WorkResult& r) {
+      BufferBlock& outputbuffer = strong_conn->getOutputBuffer();
+      if (r.has_response && !r.response_data.empty()) {
+        outputbuffer.append(r.response_data.c_str(), r.response_data.size());
+      }
+      if (r.close_after_send) {
+        strong_conn->setCloseOnSendComplete(true);
+      }
+      if (r.has_sendfile && r.sendfile_fd >= 0) {
+        strong_conn->StartSendFile(r.sendfile_fd, r.sendfile_offset, r.sendfile_length, true);
+        r.sendfile_fd = -1;
+      }
+      strong_conn->send();
+    };
+
+    std::vector<WorkResult> to_apply;
+    {
+      std::lock_guard<std::mutex> lock(ctx->mutex);
+      if (result.response_seq <= ctx->last_applied_response_seq) {
+        if (result.sendfile_fd >= 0) {
+          ::close(result.sendfile_fd);
+          result.sendfile_fd = -1;
+        }
+        return;
+      }
+      if (result.response_seq != ctx->last_applied_response_seq + 1) {
+        ctx->pending_results.emplace(result.response_seq, std::move(result));
+        return;
+      }
+
+      to_apply.push_back(std::move(result));
+      ctx->last_applied_response_seq++;
+      while (true) {
+        auto it = ctx->pending_results.find(ctx->last_applied_response_seq + 1);
+        if (it == ctx->pending_results.end()) {
+          break;
+        }
+        to_apply.push_back(std::move(it->second));
+        ctx->pending_results.erase(it);
+        ctx->last_applied_response_seq++;
+      }
+    }
+
+    for (auto& r : to_apply) {
+      apply_result(r);
+      const auto io_flush_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - r.io_enqueue_tp).count();
+      const long pipeline_ms = (r.queue_wait_ms > 0 ? r.queue_wait_ms : 0) + r.worker_exec_ms + io_flush_ms;
+      LOGINFO("worker链路 request_id=" + r.request_id +
+              " seq=" + std::to_string(r.response_seq) +
+              " route=" + r.route_bucket +
+              " queue_wait_ms=" + std::to_string(r.queue_wait_ms) +
+              " parse_route_ms=" + std::to_string(r.parse_route_ms) +
+              " business_ms=" + std::to_string(r.business_ms) +
+              " serialize_ms=" + std::to_string(r.serialize_ms) +
+              " worker_exec_ms=" + std::to_string(r.worker_exec_ms) +
+              " io_flush_ms=" + std::to_string(io_flush_ms) +
+              " pipeline_ms=" + std::to_string(pipeline_ms));
+      if (pipeline_ms >= slow_request_ms_threshold_) {
+        LOGWARNING("慢请求 request_id=" + r.request_id +
+                   " method=" + r.method +
+                   " path=" + r.path +
+                   " route=" + r.route_bucket +
+                   " pipeline_ms=" + std::to_string(pipeline_ms));
+      }
+      RecordPhase3Metrics(r, io_flush_ms, pipeline_ms);
+    }
+  });
+}
+
+void HttpServer::SendServiceUnavailable(spConnection conn, const std::string& reason) {
+  if (!conn) return;
+  HttpResponse response;
+  response.SetStatusCode(HttpStatusCode::SERVICE_UNAVAILABLE);
+  response.SetHeader("Content-Type", "application/json; charset=utf-8");
+  response.SetHeader("Connection", "close");
+  response.SetBody("{\"success\":false,\"message\":\"Service busy: " + reason + "\"}");
+
+  auto& outputbuffer = conn->getOutputBuffer();
+  std::string data = response.Serialize();
+  outputbuffer.append(data.c_str(), data.size());
+  conn->setCloseOnSendComplete(true);
+  conn->send();
+}
+
+void HttpServer::RecordPhase3Metrics(const WorkResult& result, long io_flush_ms, long pipeline_ms) {
+  const std::string bucket = result.route_bucket.empty() ? "other" : result.route_bucket;
+  {
+    std::lock_guard<std::mutex> lock(metrics_mutex_);
+    auto& metric = route_metrics_[bucket];
+    metric.requests++;
+    if (result.is_error) metric.errors++;
+    metric.total_pipeline_ms += static_cast<uint64_t>(pipeline_ms > 0 ? pipeline_ms : 0);
+    metric.max_pipeline_ms = std::max<uint64_t>(metric.max_pipeline_ms, pipeline_ms > 0 ? static_cast<uint64_t>(pipeline_ms) : 0);
+    metric.total_queue_wait_ms += static_cast<uint64_t>(result.queue_wait_ms > 0 ? result.queue_wait_ms : 0);
+    metric.total_worker_exec_ms += static_cast<uint64_t>(result.worker_exec_ms > 0 ? result.worker_exec_ms : 0);
+    metric.total_io_flush_ms += static_cast<uint64_t>(io_flush_ms > 0 ? io_flush_ms : 0);
+    metric.total_parse_route_ms += static_cast<uint64_t>(result.parse_route_ms > 0 ? result.parse_route_ms : 0);
+    metric.total_business_ms += static_cast<uint64_t>(result.business_ms > 0 ? result.business_ms : 0);
+    metric.total_serialize_ms += static_cast<uint64_t>(result.serialize_ms > 0 ? result.serialize_ms : 0);
+    if (result.has_sendfile) {
+      metric.sendfile_requests++;
+      metric.sendfile_bytes += result.sendfile_bytes;
+    }
+  }
+  MaybeLogPhase3Snapshot();
+}
+
+void HttpServer::MaybeLogPhase3Snapshot() {
+  const uint64_t observed = metrics_observed_.fetch_add(1, std::memory_order_relaxed) + 1;
+  if (observed % metrics_snapshot_every_ != 0) {
+    return;
+  }
+
+  std::ostringstream oss;
+  oss << "Phase3指标快照 total_observed=" << observed;
+  {
+    std::lock_guard<std::mutex> lock(metrics_mutex_);
+    for (const auto& kv : route_metrics_) {
+      const auto& bucket = kv.first;
+      const auto& m = kv.second;
+      if (m.requests == 0) continue;
+      const uint64_t avg_pipeline = m.total_pipeline_ms / m.requests;
+      const uint64_t avg_queue_wait = m.total_queue_wait_ms / m.requests;
+      const uint64_t avg_worker_exec = m.total_worker_exec_ms / m.requests;
+      const uint64_t avg_io_flush = m.total_io_flush_ms / m.requests;
+      oss << " | route=" << bucket
+          << ", req=" << m.requests
+          << ", err=" << m.errors
+          << ", avg_pipeline_ms=" << avg_pipeline
+          << ", max_pipeline_ms=" << m.max_pipeline_ms
+          << ", avg_queue_wait_ms=" << avg_queue_wait
+          << ", avg_worker_exec_ms=" << avg_worker_exec
+          << ", avg_io_flush_ms=" << avg_io_flush;
+      if (m.sendfile_requests > 0) {
+        oss << ", sendfile_req=" << m.sendfile_requests
+            << ", sendfile_bytes=" << m.sendfile_bytes;
+      }
+    }
+  }
+  LOGINFO(oss.str());
 }
 
 /**

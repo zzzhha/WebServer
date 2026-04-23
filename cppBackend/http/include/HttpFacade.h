@@ -81,6 +81,25 @@ public:
     // 获取已消费的字节数
     size_t GetConsumedBytes() const;
 
+    // Pending 缓冲管理（性能优化：避免每次全量拼接）
+    void AppendPending(std::string&& data);
+    void AppendPending(const std::string& data);
+    void ErasePending(size_t len);
+    size_t GetPendingSize() const;
+    void ClearPending();
+    
+    // 缓冲区大小限制配置
+    void SetMaxPendingSize(size_t max_size);
+    size_t GetMaxPendingSize() const;
+    bool IsPendingFull() const;
+
+    // 使用 pending 缓冲的处理接口
+    HttpServerResult ProcessPending(std::unique_ptr<IHttpMessage>& out_message,
+                                    HttpResponse& out_response);
+    HttpServerResult ProcessPending(std::unique_ptr<IHttpMessage>& out_message,
+                                    HttpResponse& out_response,
+                                    HttpError& out_error);
+
 private:
     // SSL处理阶段
     HttpServerResult ProcessSsl(const std::string& raw_data,
@@ -135,4 +154,10 @@ private:
 
     HttpError last_error_{};
     bool has_error_{false};
+
+    // Pending 缓冲：累积未解析的数据，避免每次全量拼接
+    std::string pending_data_;
+    
+    // 缓冲区大小限制
+    size_t max_pending_size_{10 * 1024 * 1024}; // 默认10MB
 };

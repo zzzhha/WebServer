@@ -11,7 +11,6 @@
 
 Connection::Connection(EventLoop* loop,std::unique_ptr<Socket>clientsock)
 :loop_(loop),clientsock_(std::move(clientsock)),disconnect_(false),close_on_send_complete_(false),clientchannel_(new Channel(loop_,clientsock_->fd())){
-  //clientchannel_=new Channel(loop_,clientsock_->fd());   
   clientchannel_->setreadcallback (std::bind(&Connection::onmessage,this));
   clientchannel_->setclosecallback(std::bind(&Connection::closecallback,this));
   clientchannel_->seterrorcallback(std::bind(&Connection::errorcallback,this));
@@ -80,6 +79,7 @@ LOGDEBUG("唤起写事件");
 }
 
 void Connection::connectEstablished(){
+  clientchannel_->tie(shared_from_this());
   clientchannel_->useet();
   clientchannel_->enablereading();
 }

@@ -21,27 +21,29 @@ void Epoll::updatechannel(Channel *ch){
   ev.data.ptr=ch; //指定Channel
   ev.events = ch->events();//指定事件
   if(ch->inpoll()){//如果Channel已经在树上了（一个Channel只对应一个epoll，但是一个epoll能对应多个Channel）
-  if(epoll_ctl(epollfd_,EPOLL_CTL_MOD,ch->fd(),&ev)==-1){
-      LOGERROR("epoll_ctl failed\n");
-      //perror("epoll_ctl failed\n");
-      exit(-1);
+    if(epoll_ctl(epollfd_,EPOLL_CTL_MOD,ch->fd(),&ev)==-1){
+      char buf[256];
+      snprintf(buf, sizeof(buf), "epoll_ctl mod failed: %s", strerror(errno));
+      LOGERROR(buf);
+      return;
     }
   }else{
     if(epoll_ctl(epollfd_,EPOLL_CTL_ADD,ch->fd(),&ev)==-1){
-      LOGERROR("epoll_ctl failed\n");
-      //perror("epoll_ctl failed\n");
-      exit(-1);
+      char buf[256];
+      snprintf(buf, sizeof(buf), "epoll_ctl add failed: %s", strerror(errno));
+      LOGERROR(buf);
+      return;
     }
     ch->setinepoll(); //把channel的inepoll设置为true
   }
 }
 void Epoll::removechannel(Channel *ch){
   if(ch->inpoll()){//如果Channel已经在树上了（一个Channel只对应一个epoll，但是一个epoll能对应多个Channel）
-    //printf("removechannel()\n");
     if(epoll_ctl(epollfd_,EPOLL_CTL_DEL,ch->fd(),0)==-1){
-      LOGERROR("epoll_ctl failed\n");
-      //perror("epoll_ctl failed\n");
-      exit(-1);
+      char buf[256];
+      snprintf(buf, sizeof(buf), "epoll_ctl del failed: %s", strerror(errno));
+      LOGERROR(buf);
+      return;
     }
   }
 }
@@ -51,12 +53,12 @@ std::vector<Channel*>Epoll::loop(int timeout){
   bzero(events_,sizeof(events_));
   int number =epoll_wait(epollfd_,events_,MaxEvents,timeout);
   if(number<0){
-    LOGERROR("epoll_wait error\n");
-    exit(-1);
+    char buf[256];
+    snprintf(buf, sizeof(buf), "epoll_wait error: %s", strerror(errno));
+    LOGERROR(buf);
+    return channels;
   }
   if(number ==0){
-    
-    //printf("epoll_wait() timeout\n");
     return channels;
   }
   for(int i=0;i<number;i++){

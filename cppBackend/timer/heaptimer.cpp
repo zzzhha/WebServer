@@ -3,7 +3,7 @@
 void HeapTimer::siftup_(size_t i) {
     assert(i >= 0 && i < heap_.size());
     size_t j = (i - 1) / 2;
-    while(j >= 0) {
+    while(j > 0) {
         if(heap_[j] < heap_[i]) { break; }
         SwapNode_(i, j);
         i = j;

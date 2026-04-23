@@ -183,6 +183,8 @@ set(REACTOR_SOURCES
     reactor/Eventloop.h
     reactor/HttpServer.cpp
     reactor/HttpServer.h
+    reactor/RouteMetricsUtil.cpp
+    reactor/RouteMetricsUtil.h
     reactor/InetAddress.cpp
     reactor/InetAddress.h
     reactor/Socket.cpp

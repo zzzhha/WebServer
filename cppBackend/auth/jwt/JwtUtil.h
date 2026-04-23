@@ -10,6 +10,12 @@
  */
 class JwtUtil {
 public:
+    // 令牌类型枚举
+    enum class TokenType {
+        ACCESS,     // 访问令牌（24小时）
+        REFRESH     // 刷新令牌（7天）
+    };
+
     // Claims结构，用于存储JWT的声明信息
     struct Claims {
         std::string user_id;
@@ -20,9 +26,9 @@ public:
     };
 
     // 生成JWT token
-    // 参数：username - 用户名，user_id - 用户ID
+    // 参数：username - 用户名，user_id - 用户ID，type - 令牌类型
     // 返回值：生成的JWT token字符串
-    static std::string GenerateToken(const std::string& username, const std::string& user_id);
+    static std::string GenerateToken(const std::string& username, const std::string& user_id, TokenType type = TokenType::ACCESS);
 
     // 验证JWT token
     // 参数：token - 要验证的JWT token

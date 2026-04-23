@@ -54,10 +54,10 @@ std::optional<JwtUtil::Claims> JwtUtil::ExtractClaims(const T& decoded) {
 }
 
 // 生成JWT token
-std::string JwtUtil::GenerateToken(const std::string& username, const std::string& user_id) {
+std::string JwtUtil::GenerateToken(const std::string& username, const std::string& user_id, TokenType type) {
     try {
         auto now = std::chrono::system_clock::now();
-        auto expires_at = now + ACCESS_TOKEN_EXPIRATION;
+        auto expires_at = now + (type == TokenType::ACCESS ? ACCESS_TOKEN_EXPIRATION : REFRESH_TOKEN_EXPIRATION);
         
         auto token = jwt::create()
             .set_type("JWT")

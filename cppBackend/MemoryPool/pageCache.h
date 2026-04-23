@@ -2,6 +2,7 @@
 #include"common.h"
 #include<map>
 #include<mutex>
+#include<memory>
 
 class pageCache{
 public:
@@ -33,14 +34,14 @@ private:
   struct Span{
     void *pageAddr;   //页起始地址
     size_t numPages;  //页数
-    Span *next;       //链表指针
+    std::unique_ptr<Span> next;       //链表指针
   };
 
   //按页数管理空闲的span,不同页数对应不同Span链表
-  std::map<size_t,Span*> freeSpans_;
+  std::map<size_t,std::unique_ptr<Span>> freeSpans_;
 
   //页号到span的映射，用于回收
-  std::map<void*,Span*> spanMap_;
+  std::map<void*,std::unique_ptr<Span>> spanMap_;
 
   //大型内存映射（ptr -> numPages），用于大型内存释放
   std::map<void*,size_t> largeSpanMap_;

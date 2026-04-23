@@ -45,19 +45,34 @@ bool UserDao::InsertUser(const std::string& username, const std::string& passwor
     std::string uuid = GenerateUUID();
 
     // 转义特殊字符，防止SQL注入
-    char esc_id[64] = {0};
-    mysql_real_escape_string(sql, esc_id, uuid.c_str(), uuid.size());
-    char esc_username[256] = {0};
-    mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
-    char esc_password_hash[256] = {0};
-    mysql_real_escape_string(sql, esc_password_hash, password_hash.c_str(), password_hash.size());
+    // 根据MySQL文档，转义后的字符串最多可能比原字符串长一倍
+    char esc_id[128] = {0}; // UUID最大36字符，转义后最多72字符
+    size_t id_len = mysql_real_escape_string(sql, esc_id, uuid.c_str(), uuid.size());
+    if (id_len >= sizeof(esc_id)) {
+        LOGERROR("InsertUser: escaped UUID too long");
+        return false;
+    }
+    
+    char esc_username[512] = {0}; // 用户名最大255字符，转义后最多510字符
+    size_t username_len = mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
+    if (username_len >= sizeof(esc_username)) {
+        LOGERROR("InsertUser: escaped username too long");
+        return false;
+    }
+    
+    char esc_password_hash[512] = {0}; // 密码哈希最大255字符，转义后最多510字符
+    size_t password_len = mysql_real_escape_string(sql, esc_password_hash, password_hash.c_str(), password_hash.size());
+    if (password_len >= sizeof(esc_password_hash)) {
+        LOGERROR("InsertUser: escaped password hash too long");
+        return false;
+    }
 
     // 插入新用户
     std::string insert_sql = "INSERT INTO user(id, username, password_hash) VALUES('"
         + std::string(esc_id) + "', '" + std::string(esc_username) + "', '" + std::string(esc_password_hash) + "');";
     if (mysql_query(sql, insert_sql.c_str()) != 0) {
         char buf[256];
-        sprintf(buf, "InsertUser failed: %s", mysql_error(sql));
+        snprintf(buf, sizeof(buf), "InsertUser failed: %s", mysql_error(sql));
         LOGERROR(buf);
         // 检查是否是用户名重复错误
         std::string error_msg = mysql_error(sql);
@@ -68,7 +83,7 @@ bool UserDao::InsertUser(const std::string& username, const std::string& passwor
     }
     
     char buf[256];
-    sprintf(buf, "InsertUser success: username = %s, id = %s", username.c_str(), uuid.c_str());
+    snprintf(buf, sizeof(buf), "InsertUser success: username = %s, id = %s", username.c_str(), uuid.c_str());
     LOGINFO(buf);
     return true;
 }
@@ -84,15 +99,20 @@ std::optional<UserInfo> UserDao::QueryUserByUsername(const std::string& username
     }
 
     // 转义特殊字符
-    char esc_username[256] = {0};
-    mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
+    // 根据MySQL文档，转义后的字符串最多可能比原字符串长一倍
+    char esc_username[512] = {0}; // 用户名最大255字符，转义后最多510字符
+    size_t username_len = mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
+    if (username_len >= sizeof(esc_username)) {
+        LOGERROR("QueryUserByUsername: escaped username too long");
+        return std::nullopt;
+    }
 
     // 查询用户信息
     std::string query_sql = "SELECT id, username, password_hash FROM user WHERE username = '" 
         + std::string(esc_username) + "' LIMIT 1;";
     if (mysql_query(sql, query_sql.c_str()) != 0) {
         char buf[256];
-        sprintf(buf, "QueryUserByUsername query failed: %s", mysql_error(sql));
+        snprintf(buf, sizeof(buf), "QueryUserByUsername query failed: %s", mysql_error(sql));
         LOGERROR(buf);
         return std::nullopt;
     }
@@ -100,7 +120,7 @@ std::optional<UserInfo> UserDao::QueryUserByUsername(const std::string& username
     MYSQL_RES* res = mysql_store_result(sql);
     if (!res) {
         char buf[256];
-        sprintf(buf, "QueryUserByUsername get result failed: %s", mysql_error(sql));
+        snprintf(buf, sizeof(buf), "QueryUserByUsername get result failed: %s", mysql_error(sql));
         LOGERROR(buf);
         return std::nullopt;
     }
@@ -138,15 +158,20 @@ bool UserDao::UserExists(const std::string& username) {
     }
 
     // 转义特殊字符
-    char esc_username[256] = {0};
-    mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
+    // 根据MySQL文档，转义后的字符串最多可能比原字符串长一倍
+    char esc_username[512] = {0}; // 用户名最大255字符，转义后最多510字符
+    size_t username_len = mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
+    if (username_len >= sizeof(esc_username)) {
+        LOGERROR("UserExists: escaped username too long");
+        return false;
+    }
 
     // 查询用户名是否存在
     std::string query_sql = "SELECT username FROM user WHERE username = '" 
         + std::string(esc_username) + "' LIMIT 1;";
     if (mysql_query(sql, query_sql.c_str()) != 0) {
         char buf[256];
-        sprintf(buf, "UserExists query failed: %s", mysql_error(sql));
+        snprintf(buf, sizeof(buf), "UserExists query failed: %s", mysql_error(sql));
         LOGERROR(buf);
         return false;
     }
@@ -154,7 +179,7 @@ bool UserDao::UserExists(const std::string& username) {
     MYSQL_RES* res = mysql_store_result(sql);
     if (!res) {
         char buf[256];
-        sprintf(buf, "UserExists get result failed: %s", mysql_error(sql));
+        snprintf(buf, sizeof(buf), "UserExists get result failed: %s", mysql_error(sql));
         LOGERROR(buf);
         return false;
     }
@@ -175,15 +200,20 @@ bool UserDao::DeleteUser(const std::string& username) {
     }
 
     // 转义特殊字符
-    char esc_username[256] = {0};
-    mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
+    // 根据MySQL文档，转义后的字符串最多可能比原字符串长一倍
+    char esc_username[512] = {0}; // 用户名最大255字符，转义后最多510字符
+    size_t username_len = mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
+    if (username_len >= sizeof(esc_username)) {
+        LOGERROR("DeleteUser: escaped username too long");
+        return false;
+    }
 
     // 删除用户
     std::string delete_sql = "DELETE FROM user WHERE username = '" 
         + std::string(esc_username) + "';";
     if (mysql_query(sql, delete_sql.c_str()) != 0) {
         char buf[256];
-        sprintf(buf, "DeleteUser failed: %s", mysql_error(sql));
+        snprintf(buf, sizeof(buf), "DeleteUser failed: %s", mysql_error(sql));
         LOGERROR(buf);
         return false;
     }
@@ -191,13 +221,13 @@ bool UserDao::DeleteUser(const std::string& username) {
     // 检查是否有行被删除
     if (mysql_affected_rows(sql) == 0) {
         char buf[256];
-        sprintf(buf, "DeleteUser: user not found - %s", username.c_str());
+        snprintf(buf, sizeof(buf), "DeleteUser: user not found - %s", username.c_str());
         LOGWARNING(buf);
         return false;
     }
     
     char buf[256];
-    sprintf(buf, "DeleteUser success: username = %s", username.c_str());
+    snprintf(buf, sizeof(buf), "DeleteUser success: username = %s", username.c_str());
     LOGINFO(buf);
     return true;
 }
