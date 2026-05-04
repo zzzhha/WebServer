@@ -115,7 +115,6 @@ private:
   size_t max_conn_pending_bytes_{512 * 1024};
   size_t max_concurrent_workers_per_conn_{4};
   size_t max_apply_per_batch_{16};
-  bool parallel_pipelining_enabled_{false};
   
 public:
   /**

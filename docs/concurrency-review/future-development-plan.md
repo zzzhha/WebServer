@@ -75,7 +75,7 @@ if (pread_count >= kMaxPreadsPerEvent) {
 源码确认点：
 
 - `ConnectionWorkContext` 扩展：[HttpServer.h:L55-L59](file:///home/zsy/WebServer/cppBackend/reactor/HttpServer.h#L55-L59) — `active_worker_count` / `max_concurrent_workers` / `draining` / `facade_mutex`
-- HttpServer 配置：[HttpServer.h:L114-L117](file:///home/zsy/WebServer/cppBackend/reactor/HttpServer.h#L114-L117) — `max_concurrent_workers_per_conn_` / `max_apply_per_batch_` / `parallel_pipelining_enabled_`
+- HttpServer 配置：[HttpServer.h:L114-L117](file:///home/zsy/WebServer/cppBackend/reactor/HttpServer.h#L114-L117) — `max_concurrent_workers_per_conn_` / `max_apply_per_batch_`
 - 链式调度 `HandleMessageInWorker`：[HttpServer.cpp:L175-L234](file:///home/zsy/WebServer/cppBackend/reactor/HttpServer.cpp#L175-L234)
 - `ProcessSingleRequest` 多阶段执行器：[HttpServer.cpp:L484-L510](file:///home/zsy/WebServer/cppBackend/reactor/HttpServer.cpp#L484-L510)
 - `OnWorkerExit`：[HttpServer.cpp:L512-L527](file:///home/zsy/WebServer/cppBackend/reactor/HttpServer.cpp#L512-L527)
