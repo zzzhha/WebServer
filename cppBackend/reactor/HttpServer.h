@@ -33,7 +33,7 @@ class TlsContext;
  * 继承和使用了TcpServer的接口来处理网络事件
  */
 class HttpServer{
-private:
+public:
   struct WorkResult;
 
   struct PendingChunk {
@@ -52,6 +52,11 @@ private:
     uint64_t next_response_seq{1};                  //保证响应顺序的序列号生成器
     uint64_t last_applied_response_seq{0};          //记录最后应用的响应序列号
     std::map<uint64_t, WorkResult> pending_results; //按序列号存储的待回写响应结果
+
+    size_t active_worker_count{0};                  //当前正在执行的 worker 数
+    size_t max_concurrent_workers{4};               //单连接最大并发 worker 数
+    bool draining{false};                           //排空模式：不再启动新 worker
+    std::mutex facade_mutex;                        //保护 facade 的独占访问
   };
 
   struct WorkResult {
@@ -77,6 +82,8 @@ private:
     long serialize_ms{0};                              // 序列化时间（毫秒）
     std::chrono::steady_clock::time_point io_enqueue_tp;// IO入队时间点
   };
+
+private:
 
   struct RouteMetric {
     uint64_t requests{0};                            // 请求总数
@@ -106,6 +113,9 @@ private:
   long slow_request_ms_threshold_{300};
   size_t max_work_queue_depth_{4096};
   size_t max_conn_pending_bytes_{512 * 1024};
+  size_t max_concurrent_workers_per_conn_{4};
+  size_t max_apply_per_batch_{16};
+  bool parallel_pipelining_enabled_{false};
   
 public:
   /**
@@ -179,12 +189,55 @@ private:
    * @param request HTTP请求对象
    * @param response HTTP响应对象
    */
+  // === Phase 2: 多阶段请求处理 ===
+  enum class RequestPhase {
+    PARSE_AND_ROUTE,
+    IO_OPERATION,
+    SERIALIZE_AND_SEND
+  };
+
+  struct RequestContext {
+    std::unique_ptr<IHttpMessage> message;
+    HttpResponse response;
+    HttpError err;
+    HttpServerResult result;
+    std::string request_id;
+    std::string method;
+    std::string path;
+    bool keep_alive{false};
+
+    int file_fd{-1};
+    off_t file_offset{0};
+    size_t file_length{0};
+
+    std::chrono::steady_clock::time_point parse_begin;
+    std::chrono::steady_clock::time_point business_begin;
+    std::chrono::steady_clock::time_point serialize_begin;
+
+    RequestPhase next_phase{RequestPhase::PARSE_AND_ROUTE};
+    bool suspended{false};
+  };
+
   void ProcessRequest(HttpRequest* request, HttpResponse& response);
   void HandleMessageInWorker(std::weak_ptr<Connection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx);
+  void ProcessSingleRequest(std::weak_ptr<Connection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx, PendingChunk chunk, std::shared_ptr<RequestContext> req_ctx = nullptr);
+  void OnWorkerExit(std::shared_ptr<ConnectionWorkContext> ctx, std::shared_ptr<Connection> conn);
   void PostResultToIoLoop(std::weak_ptr<Connection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx, WorkResult result);
+  void CloseSendFileFd(WorkResult& result);
   void SendServiceUnavailable(spConnection conn, const std::string& reason);
   void RecordPhase3Metrics(const WorkResult& result, long io_flush_ms, long pipeline_ms);
   void MaybeLogPhase3Snapshot();
+  void PhaseParseAndRoute(std::weak_ptr<Connection> weak_conn,
+                           std::shared_ptr<ConnectionWorkContext> ctx,
+                           PendingChunk& chunk,
+                           std::shared_ptr<RequestContext> req_ctx);
+  void PhaseIoOperation(std::weak_ptr<Connection> weak_conn,
+                         std::shared_ptr<ConnectionWorkContext> ctx,
+                         std::shared_ptr<RequestContext> req_ctx);
+  void PhaseSerializeAndSend(std::weak_ptr<Connection> weak_conn,
+                              std::shared_ptr<ConnectionWorkContext> ctx,
+                              PendingChunk& chunk,
+                              std::shared_ptr<RequestContext> req_ctx);
   
   /**
    * 设置路由规则

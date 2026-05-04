@@ -4,6 +4,7 @@
 #include<cstring>
 #include<vector>
 #include"../MemoryPool/MemoryPool.h"
+#include"../MemoryPool/DeferDeallocate.h"
 #include<sys/uio.h>
 
 
@@ -21,9 +22,7 @@ class BufferBlock{
 
     ~Block(){
       if(data){
-        //delete []data;
-        //ConcurrentFree(data);
-        MemoryPool::deallocate(data,size);
+        DeferDeallocate(data, size);
       }
     }
 
@@ -40,9 +39,7 @@ class BufferBlock{
     Block& operator=(Block&& other) noexcept {
       if (this != &other) {
         if(data){
-         // delete []data;
-          //ConcurrentFree(data);
-          MemoryPool::deallocate(data,size);
+          DeferDeallocate(data, size);
         }
         data = other.data;
         size = other.size;

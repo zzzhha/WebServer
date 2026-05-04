@@ -80,7 +80,7 @@ LOGDEBUG("唤起写事件");
 
 void Connection::connectEstablished(){
   clientchannel_->tie(shared_from_this());
-  clientchannel_->useet();
+  //clientchannel_->useet();
   clientchannel_->enablereading();
 }
 void Connection::writecallback(){
@@ -105,6 +105,9 @@ void Connection::writecallback(){
   }
 
   if (tls_ && tls_->HandshakeDone() && !tls_->KtlsTx()) {
+    const size_t kMaxPreadsPerEvent = 4;
+    size_t pread_count = 0;
+
     while (true) {
       if (!tls_out_pending_.empty()) {
         size_t nwritten = 0;
@@ -142,6 +145,12 @@ void Connection::writecallback(){
           ClearSendFile();
           continue;
         }
+
+        if (pread_count >= kMaxPreadsPerEvent) {
+          clientchannel_->enablewriting();
+          return;
+        }
+
         size_t to_read = std::min<size_t>(16384, sendfile_.remaining);
         tls_out_pending_.assign(to_read, '\0');
         ssize_t n = ::pread(sendfile_.file_fd, &tls_out_pending_[0], to_read, sendfile_.offset);
@@ -149,6 +158,7 @@ void Connection::writecallback(){
           tls_out_pending_.resize(static_cast<size_t>(n));
           sendfile_.offset += static_cast<off_t>(n);
           sendfile_.remaining -= static_cast<size_t>(n);
+          pread_count++;
           continue;
         }
         if (n == 0) {
@@ -180,13 +190,16 @@ void Connection::writecallback(){
 LOGDEBUG("准备发送数据");
   const size_t max_ioves =16;
   struct iovec iovs[max_ioves];
+  const size_t kMaxBytesPerEvent = 1024 * 1024;
+  size_t total_written = 0;
 
-  while(true){
+  while(total_written < kMaxBytesPerEvent){
     size_t iov_count = 0;
     iov_count = outputbuffer_.getIOVecs(iovs,max_ioves,outputbuffer_.read_pos_);
     if(iov_count > 0){
       ssize_t nwritten = ::writev(fd(),iovs,iov_count);
       if(nwritten > 0){
+        total_written += static_cast<size_t>(nwritten);
         outputbuffer_.consumeBytes(nwritten);
         continue;
       }else if(nwritten == -1){
@@ -207,6 +220,7 @@ LOGDEBUG("准备发送数据");
         off_t off = sendfile_.offset;
         ssize_t n = ::sendfile(fd(), sendfile_.file_fd, &off, sendfile_.remaining);
         if(n > 0){
+          total_written += static_cast<size_t>(n);
           sendfile_.offset = off;
           sendfile_.remaining -= static_cast<size_t>(n);
           continue;
@@ -237,6 +251,10 @@ LOGDEBUG("发送数据完毕");
       }
       return;
     }
+  }
+
+  if(outputbuffer_.readableBytes() > 0 || sendfile_.active){
+    clientchannel_->enablewriting();
   }
 }
 

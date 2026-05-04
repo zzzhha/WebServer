@@ -1,6 +1,6 @@
 #include "ChunkedDownloadManager.h"
 
-#include "FileHashUtil.h"
+#include "Crc64Util.h"
 #include "SimpleHttpClient.h"
 
 #include "../../reactor/ThreadPool.h"
@@ -220,11 +220,6 @@ bool ChunkedDownloadManager::FetchRemoteMetadata() {
     total_bytes_ = total;
   }
 
-  auto md5_it = resp.headers.find("x-file-md5");
-  if (md5_it != resp.headers.end() && !md5_it->second.empty()) {
-    expected_md5_hex_ = md5_it->second;
-  }
-
   return true;
 }
 
@@ -369,8 +364,8 @@ bool ChunkedDownloadManager::LoadMetaFile() {
     else if (line.rfind("dest=", 0) == 0) dest = line.substr(5);
     else if (line.rfind("total=", 0) == 0) total = std::strtoull(line.substr(6).c_str(), nullptr, 10);
     else if (line.rfind("chunk=", 0) == 0) chunk = std::strtoull(line.substr(6).c_str(), nullptr, 10);
-    else if (line.rfind("md5=", 0) == 0) {
-      std::string v = line.substr(4);
+    else if (line.rfind("crc64=", 0) == 0) {
+      std::string v = line.substr(6);
       if (!v.empty()) md5 = v;
     } else if (line.rfind("chunk_count=", 0) == 0) {
       chunk_count = std::strtoull(line.substr(12).c_str(), nullptr, 10);
@@ -402,7 +397,9 @@ bool ChunkedDownloadManager::LoadMetaFile() {
   if (total == 0 || chunk_count == 0) return false;
 
   total_bytes_ = total;
-  if (md5) expected_md5_hex_ = *md5;
+  if (md5) {
+    expected_crc64_ = std::strtoull(md5->c_str(), nullptr, 16);
+  }
 
   std::vector<ChunkInfo> cs;
   cs.reserve(static_cast<size_t>(chunk_count));
@@ -439,12 +436,12 @@ bool ChunkedDownloadManager::SaveMetaFile() const {
 
   std::vector<ChunkInfo> cs;
   uint64_t total = 0;
-  std::optional<std::string> md5;
+  std::optional<uint64_t> crc64;
   {
     std::lock_guard<std::mutex> lk(mu_);
     cs = chunks_;
     total = total_bytes_;
-    md5 = expected_md5_hex_;
+    crc64 = expected_crc64_;
   }
 
   out << "v=1\n";
@@ -452,7 +449,7 @@ bool ChunkedDownloadManager::SaveMetaFile() const {
   out << "dest=" << dest_path_ << "\n";
   out << "total=" << total << "\n";
   out << "chunk=" << config_.chunk_size_bytes << "\n";
-  out << "md5=" << (md5 ? *md5 : "") << "\n";
+  out << "crc64=" << (crc64 ? Crc64Util::ToHex(*crc64) : "") << "\n";
   out << "chunk_count=" << cs.size() << "\n";
 
   for (const auto& c : cs) {
@@ -644,6 +641,15 @@ bool ChunkedDownloadManager::DownloadOneChunk(uint64_t chunk_index) {
   }
   out.close();
 
+  {
+    uint64_t chunk_crc = Crc64Util::ComputeChunkCrc64(resp.body.data(), resp.body.size());
+    std::lock_guard<std::mutex> lk(mu_);
+    if (chunk_crc64s_.size() <= static_cast<size_t>(chunk_index)) {
+      chunk_crc64s_.resize(static_cast<size_t>(chunk_index) + 1, 0);
+    }
+    chunk_crc64s_[static_cast<size_t>(chunk_index)] = chunk_crc;
+  }
+
   ChunkInfo snap;
   {
     std::lock_guard<std::mutex> lk(mu_);
@@ -669,13 +675,6 @@ void ChunkedDownloadManager::ReportError(DownloadError err, const std::string& m
   if (callbacks_.on_error) callbacks_.on_error(err, msg);
 }
 
-static std::string ToLowerCopy(std::string s) {
-  for (char& c : s) {
-    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-  }
-  return s;
-}
-
 /**
  * 完成收尾
  * - 合并所有 .part 到临时输出，再重命名到最终文件
@@ -689,8 +688,8 @@ bool ChunkedDownloadManager::FinalizeDownload() {
     return false;
   }
 
-  if (!VerifyMd5(error)) {
-    ReportError(DownloadError::Md5Mismatch, error);
+  if (!VerifyCrc64(error)) {
+    ReportError(DownloadError::Crc64Mismatch, error);
     return false;
   }
 
@@ -767,21 +766,30 @@ bool ChunkedDownloadManager::MergeParts(std::string& error) {
 }
 
 /**
- * MD5 校验
- * - 计算最终文件 MD5（lowercase hex）并与期望值比较（忽略大小写）
- * - 若无期望值（服务端未提供），则视为校验通过
+ * CRC64 校验
+ * - 组合各分块的 CRC64 值（利用 CRC64 的线性可分性），无需重新读盘
+ * - 若无期望值，则视为校验通过
  */
-bool ChunkedDownloadManager::VerifyMd5(std::string& error) {
-  auto md5 = FileHashUtil::ComputeFileMd5Hex(dest_path_);
-  if (!md5) {
-    error = "md5 compute failed";
+bool ChunkedDownloadManager::VerifyCrc64(std::string& error) {
+  if (chunk_crc64s_.empty()) {
+    error = "no chunk crc64";
     return false;
   }
-  actual_md5_hex_ = *md5;
-  if (!expected_md5_hex_) return true;
-
-  if (ToLowerCopy(*expected_md5_hex_) != ToLowerCopy(*actual_md5_hex_)) {
-    error = "md5 mismatch";
+  uint64_t combined = chunk_crc64s_[0];
+  for (size_t i = 1; i < chunk_crc64s_.size(); ++i) {
+    uint64_t chunk_len = 0;
+    {
+      std::lock_guard<std::mutex> lk(mu_);
+      if (i < chunks_.size()) {
+        chunk_len = chunks_[i].end - chunks_[i].start + 1;
+      }
+    }
+    combined = Crc64Util::Combine(combined, chunk_crc64s_[i], chunk_len);
+  }
+  actual_crc64_ = combined;
+  if (!expected_crc64_) return true;
+  if (actual_crc64_.value() != expected_crc64_.value()) {
+    error = "crc64 mismatch";
     return false;
   }
   return true;

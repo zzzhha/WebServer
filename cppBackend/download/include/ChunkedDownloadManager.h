@@ -7,7 +7,7 @@
  * - Range 请求：对每个分块使用 HTTP Range 进行按字节段下载
  * - 续传机制：通过 .meta 元数据文件记录分块状态，重启后恢复
  * - 并发控制：线程池调度，限制最大并发与超时重试
- * - 完整性校验：支持 MD5 校验，确保合并后的文件正确
+ * - 完整性校验：支持 CRC64 校验，确保合并后的文件正确
  * 线程模型:
  * - scheduler_thread 负责调度待下载分块
  * - progress_thread 周期性上报总体进度与速度
@@ -55,7 +55,7 @@ enum class DownloadState { Idle = 0, Downloading = 1, Paused = 2, Completed = 3,
  * - FileWriteFailed: 文件写入失败
  * - MetadataError: 元数据文件读写失败
  * - MergeFailed: 分块合并失败
- * - Md5Mismatch: 合并后 MD5 校验不一致
+ * - Crc64Mismatch: 合并后 CRC64 校验不一致
  */
 enum class DownloadError {
   None = 0,
@@ -67,7 +67,7 @@ enum class DownloadError {
   FileWriteFailed,
   MetadataError,
   MergeFailed,
-  Md5Mismatch
+  Crc64Mismatch
 };
 
 /**
@@ -124,7 +124,7 @@ struct ChunkedDownloadCallbacks {
  * 交互:
  * - 使用 SimpleHttpClient 发起 HEAD/Range 请求
  * - 通过 .meta/.part 文件实现续传与临时存储
- * - 合并完成后可选进行 MD5 校验
+ * - 合并完成后可选进行 CRC64 校验
  */
 class ChunkedDownloadManager {
  public:
@@ -160,7 +160,7 @@ static std::vector<ChunkInfo> BuildChunks(uint64_t total_bytes, uint64_t chunk_s
   void ProgressLoop();
   bool FinalizeDownload();
   bool MergeParts(std::string& error);
-  bool VerifyMd5(std::string& error);
+  bool VerifyCrc64(std::string& error);
   void CleanupArtifacts();
 
   bool LoadMetaFile();
@@ -186,8 +186,9 @@ static bool ParseUrl(const std::string& url, std::string& host, uint16_t& port, 
   mutable std::mutex mu_;
   std::vector<ChunkInfo> chunks_;
   uint64_t total_bytes_{0};
-  std::optional<std::string> expected_md5_hex_;
-  std::optional<std::string> actual_md5_hex_;
+  std::optional<uint64_t> expected_crc64_;
+  std::optional<uint64_t> actual_crc64_;
+  std::vector<uint64_t> chunk_crc64s_;
 
   std::unique_ptr<ThreadPool> pool_;
   std::thread scheduler_thread_;

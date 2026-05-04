@@ -226,7 +226,6 @@ bool SimpleHttpClient::Head(const std::string& host, uint16_t port, const std::s
   std::string req = "HEAD " + path + " HTTP/1.1\r\n";
   req += "Host: " + host + "\r\n";
   req += "Connection: close\r\n";
-  req += "X-Request-MD5: 1\r\n";
   req += "\r\n";
 
   bool ok = SendAll(fd, req, error) && ReadHttpResponse(fd, false, out, error);

@@ -79,16 +79,6 @@ bool StaticFileService::HandleStaticFile(HttpRequest* request, HttpResponse& res
         response.SetHeader("Accept-Ranges", "bytes");
         response.SetHeader("Content-Type", GetContentType(full_path));
 
-        bool want_md5 = false;
-        if (request->GetQueryParam("md5") == "1") want_md5 = true;
-        auto md5_header = request->GetHeader("X-Request-MD5");
-        if (md5_header && *md5_header == "1") want_md5 = true;
-        if (want_md5) {
-            if (auto md5 = FileServeUtil::ComputeFileMd5Hex(full_path); md5) {
-                response.SetHeader("X-File-MD5", *md5);
-            }
-        }
-
         FileRange range;
         auto range_value = request->GetHeader("Range");
         if (range_value) {

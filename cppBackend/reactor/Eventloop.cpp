@@ -1,4 +1,5 @@
 #include"Eventloop.h"
+#include"../MemoryPool/DeferDeallocate.h"
 //时间戳
 // int createtimerfd(int sec = 30){
 //   int tfd=timerfd_create(CLOCK_MONOTONIC,TFD_CLOEXEC|TFD_NONBLOCK);
@@ -52,6 +53,8 @@ LOGDEBUG("有新的事件准备处理");
       ch->handleevent();
       }
     }
+
+    FlushDeferredFrees();
   }
 }
 
@@ -74,13 +77,17 @@ bool EventLoop::isinloopthread(){
 }
 
 void EventLoop::queueinloop(std::function<void()> fn){
+  bool need_wakeup = false;
   {
     std::lock_guard<std::mutex> lock(mutex_); //加锁
-    taskqueue_.push(fn);    //任务入队
+    need_wakeup = taskqueue_.empty();
+    taskqueue_.push(std::move(fn));    //任务入队
   }
   //唤醒事件
+  if (need_wakeup) {
 LOGDEBUG("有任务入队，唤醒事件");
-  wakeup();
+    wakeup();
+  }
 }
 
 void EventLoop::wakeup(){
@@ -130,4 +137,3 @@ void EventLoop::newconnection(spConnection conn){
 // void EventLoop::settimercallback(std::function<void()> fn){
 //   timerwheelcallback_=fn;
 // }
-

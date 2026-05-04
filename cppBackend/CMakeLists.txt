@@ -203,7 +203,7 @@ set(DOWNLOAD_SOURCES
     download/src/SimpleHttpClient.cpp
     download/src/ChunkedDownloadManager.cpp
     download/src/DownloadTaskManager.cpp
-    download/src/FileHashUtil.cpp
+    download/src/Crc64Util.cpp
 )
 
 # Timer模块源文件
