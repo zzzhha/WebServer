@@ -1,0 +1,12 @@
+项目名称：我的私人小窝（轻量级 Web 服务器开发）	岗位：开发者	
+项目开源：https://github.com/zzzhha/WebServer.git
+项目架构：C++17，Reactor（epoll ET）/Proactor（io_uring）双后端，IO/WORK线程池（work-stealing），HTTP/1.1/2解析路由，异步日志，tcmalloc风格内存池，TimeWheel超时管理，MySQL连接池，JWT（access/refresh）
+项目描述：基于C++17 从零实现可部署的轻量级 Web 服务器，面向个人站点提供页面访问、注册/登录、文件管理与下载能力。通过 INetServer/IConnection 抽象实现 Reactor（epoll ET）/Proactor（io_uring）双后端无感切换，IO/WORK 线程池拆分收发与业务处理，BufferBlock 接入内存池降低分配开销。HTTP 层经 HttpFacade 外观统一解析/校验/路由，支持 HTTP/1.1 增量解析、Content-Length 与 chunked 解码。文件服务支持 sendfile/splice 零拷贝直传、Range 断点续传（206）、ETag/Last-Modified 缓存（304），通过 TimeWheel 回收空闲连接，以背压阈值（work队列>4096、单连接待处理>512KB）保障稳定性；网站地址：162.14.96.26:5050
+主要工作:
+1.搭建Reactor/Proactor双网络后端：Reactor侧主从EventLoop经accept4接入连接、按fd%subthreadnum分发到subloop，Channel/Connection封装EPOLLIN/OUT/ERR/HUP回调，读侧循环read至EAGAIN，写侧writev聚合发送并打通sendfile直传链路；Proactor侧基于io_uring实现splice零拷贝文件发送与SO_REUSEPORT多监听accept；两端以INetServer/IConnection抽象支持运行期切换
+2.设计并实现异步日志系统：基于单例+简单工厂封装Logger/LogFormat/LogOutput（文件/控制台），异步模式使用独立worker线程+condition_variable批量刷盘（默认batch=100）；队列上限10000，避免日志阻塞业务线程
+3.实现HTTP解析与路由框架：通过HttpFacade外观统一“解析器工厂嗅探→增量解析→责任链校验→路由分发→响应构建”流程；HTTP/1.1解析支持Content-Length与chunked（含Trailer白名单），并设置Header行16KB/100个Header/Body最大10MB等硬限制；Router支持GET/POST/PUT/HEAD/OPTIONS及参数/通配路由，落地8个业务API（注册/登录/刷新Token、文件列表/预览、分片上传init/part/complete）与下载/静态资源路由
+4.实现tcmalloc风格内存池：按8B对齐将<=256KB小块走ThreadCache/CentralCache/PageCache三级缓存，free list超64块触发归还；中/大块使用Span与mmap分配（>4MB）降低系统调用开销；将MemoryPool接入BufferBlock的Block分配/回收路径减少频繁new/delete的碎片与锁竞争
+5.实现时间轮定时器：以slot_interval为粒度维护slots个槽位并建立fd→TimerNode映射，连接活跃时更新定时器、到期批量回收；超时关闭通过queueinloop投递回所属subloop执行并引入generation校验，避免跨线程更新导致的误关与悬空回调
+6.实现MySQL连接池：启动阶段按connpoolnum预热连接（默认12条）并入队，使用semaphore限制并发借还、互斥保护队列；配合RAII借还封装减少连接泄漏风险，为业务接口提供持久化能力
+个人收获:   对自己的所学知识进行更深入、更全面的理解，扩展了对池技术的理解，对前后端分离有了定了解，对bug调试有了更多的理解;
