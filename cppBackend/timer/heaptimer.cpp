@@ -1,13 +1,15 @@
 #include"heaptimer.h"
 
 void HeapTimer::siftup_(size_t i) {
-    assert(i >= 0 && i < heap_.size());
-    size_t j = (i - 1) / 2;
-    while(j > 0) {
-        if(heap_[j] < heap_[i]) { break; }
+    assert(i < heap_.size());
+    // 低危修复：原 `while(j > 0)` 永不检查根节点（j==0），
+    // 比根还小的新节点永远无法上浮到堆顶 → 堆序破坏。
+    // 改为以 i>0 为循环条件，直到父节点 <= 子节点为止。
+    while (i > 0) {
+        size_t j = (i - 1) / 2;
+        if (heap_[j] < heap_[i]) { break; }
         SwapNode_(i, j);
         i = j;
-        j = (i - 1) / 2;
     }
 }
 

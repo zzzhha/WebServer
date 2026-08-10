@@ -94,7 +94,30 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
           if (line.empty()) {
             // 头结束，决定 body 解析方式
             auto te = currentMessage_->GetHeader("Transfer-Encoding");
-            if (te && iequals(*te, "chunked")) {
+            bool teChunked = false;
+            if (te) {
+              // 中危修复（请求走私）：TE 允许多值（如 "gzip, chunked"），按逗号拆分逐 token 判定。
+              // 若 TE 存在但不含 chunked（如仅 gzip），本服务不支持该编码 → 400。
+              std::string_view tv(*te);
+              size_t pos = 0;
+              while (pos < tv.size()) {
+                while (pos < tv.size() && (tv[pos] == ' ' || tv[pos] == '\t' || tv[pos] == ',')) ++pos;
+                size_t start = pos;
+                while (pos < tv.size() && tv[pos] != ',') ++pos;
+                size_t end = pos;
+                while (end > start && (tv[end - 1] == ' ' || tv[end - 1] == '\t')) --end;
+                if (end > start) {
+                  if (iequals(tv.substr(start, end - start), "chunked")) {
+                    teChunked = true;
+                  } else {
+                    data.erase(0, consumed);
+                    totalConsumed_ += consumed;
+                    return static_cast<int>(ParseResult::INVALIDHEADER);
+                  }
+                }
+              }
+            }
+            if (teChunked) {
               isChunked_ = true;
               allowedTrailerKeys_.clear();
               if (auto trailer = currentMessage_->GetHeader("Trailer")) {
@@ -116,9 +139,40 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
               continue;
             }
 
+            // 中危修复（请求走私）：TE 与 CL 同时出现时按无效请求拒绝，
+            // 防代理/后端消歧不一致（RFC 7230 §3.3.3）
+            if (te && currentMessage_->GetHeader("Content-Length")) {
+              data.erase(0, consumed);
+              totalConsumed_ += consumed;
+              return static_cast<int>(ParseResult::INVALIDHEADER);
+            }
+
             auto cl = currentMessage_->GetHeader("Content-Length");
             if (cl) {
-              contentLength_ = std::stoull(*cl);
+              // 全量校验 Content-Length（H3 修复）：
+              // 原实现 std::stoull 对非数字("abc")抛 invalid_argument、对超 unsigned long long
+              // 的数字抛 out_of_range，worker 路径未捕获异常导致连接挂死（远程 DoS）。
+              // 改为纯十进制数字全匹配 + from_chars，非法/溢出统一按无效头返回 400。
+              const std::string& clValue = *cl;
+              size_t clIdx = 0;
+              while (clIdx < clValue.size() &&
+                     std::isdigit(static_cast<unsigned char>(clValue[clIdx]))) {
+                ++clIdx;
+              }
+              unsigned long long clNum = 0;
+              if (clIdx == 0 || clIdx != clValue.size()) {
+                data.erase(0, consumed);
+                totalConsumed_ += consumed;
+                return static_cast<int>(ParseResult::INVALIDHEADER);
+              }
+              auto clRes = std::from_chars(clValue.data(),
+                                           clValue.data() + clValue.size(), clNum, 10);
+              if (clRes.ec != std::errc()) {
+                data.erase(0, consumed);
+                totalConsumed_ += consumed;
+                return static_cast<int>(ParseResult::INVALIDHEADER);
+              }
+              contentLength_ = static_cast<size_t>(clNum);
               if (maxBodySize_ > 0 && contentLength_ > maxBodySize_) {
                 data.erase(0, consumed);
                 totalConsumed_ += consumed;
@@ -222,16 +276,18 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
       case ParseState::kBodyChunkedData: {
         // chunked 模式：需要完整 chunk 及其结尾 CRLF
         size_t remaining = data.size() - consumed;
-        if (remaining < chunkSize_ + 2) {
-          // 需要完整 chunk + CRLF
-          res = ParseResult::NEEDMOREDATA;
-          consumed = data.size();
-          break;
-        }
-        if (maxBodySize_ > 0 && bodyTotalReceived_ + chunkSize_ > maxBodySize_) {
+        // 先做 body 上限检查（无回绕写法，H2 修复）：
+        // 防止超大 chunkSize_ 时下方 chunkSize_+2 回绕、以及超限追加
+        if (maxBodySize_ > 0 && chunkSize_ > maxBodySize_ - bodyTotalReceived_) {
           data.erase(0, consumed);
           totalConsumed_ += consumed;
           return static_cast<int>(ParseResult::BODYTOOLONG);
+        }
+        // 需要完整 chunk + CRLF；chunkSize_ > remaining 短路，避免 size+2 回绕
+        if (chunkSize_ > remaining || remaining - chunkSize_ < 2) {
+          res = ParseResult::NEEDMOREDATA;
+          consumed = data.size();
+          break;
         }
         currentMessage_->AppendBodyChunk(data.data() + consumed, chunkSize_);
         consumed += chunkSize_;
@@ -347,7 +403,7 @@ int Http1Parser::Parse(std::string& data, std::unique_ptr<IHttpMessage>& out) {
     if (res == ParseResult::SUCCESS || res == ParseResult::ERROR ||
         res == ParseResult::INVALIDSTARTLINE || res == ParseResult::INVALIDHEADER ||
         res == ParseResult::HEADERTOOLONG || res == ParseResult::BODYTOOLONG ||
-        res == ParseResult::UNSUPPORTEDVERSION) {
+        res == ParseResult::UNSUPPORTEDVERSION || res == ParseResult::LINE_TOO_LONG) {
       break;
     }
   }
@@ -432,9 +488,16 @@ ParseResult Http1Parser::ParseHeaderLine(std::string_view line) {
   if (colon == std::string_view::npos) return ParseResult::INVALIDHEADER;
 
   std::string key(line.substr(0, colon));
+  // 中危修复：空 header key（": value"）取 key[0] 是 UB，先拒绝
+  if (key.empty()) return ParseResult::INVALIDHEADER;
   std::string value = trimLWS(line.substr(colon + 1));
 
   if (strictHeaderCheck_ && !isTokenChar(key[0])) {
+    return ParseResult::INVALIDHEADER;
+  }
+
+  // 中危修复：重复 Content-Length 是请求走私向量（RFC 7230 §3.3.3），一律拒绝
+  if (iequals(key, "Content-Length") && currentMessage_->GetHeader("Content-Length")) {
     return ParseResult::INVALIDHEADER;
   }
 
@@ -450,10 +513,18 @@ ParseResult Http1Parser::ParseChunkSize(std::string_view line) {
   }
   if (idx == 0) return ParseResult::ERROR;
 
+  // 全量解析 16 进制数字：from_chars 对非法字符/数值溢出返回错误，不会静默回绕
   std::string_view hexPart = line.substr(0, idx);
-  unsigned long size = 0;
+  unsigned long long size = 0;
   auto res = std::from_chars(hexPart.data(), hexPart.data() + hexPart.size(), size, 16);
   if (res.ec != std::errc()) return ParseResult::ERROR;
+
+  // 单块声明大小超过整体 body 上限时直接拒绝（H2 修复）：
+  // 避免后续 chunkSize_+2 整数回绕、bodyTotalReceived_+chunkSize_ 回绕绕过限流，
+  // 以及 AppendBodyChunk 追加超大字节数触发 std::length_error
+  if (maxBodySize_ > 0 && size > maxBodySize_) {
+    return ParseResult::BODYTOOLONG;
+  }
 
   chunkSize_ = static_cast<size_t>(size);
   bodyReceived_ = 0;

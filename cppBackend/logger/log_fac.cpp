@@ -25,6 +25,12 @@ using namespace std;
 //第三个参数 确定日志级别
 //第四个参数 确定格式化方式
 void LogFac::Init(bool isasync,const std::string& con_file){
+	std::lock_guard<std::mutex> lock(init_mutex_);
+	// 低危修复：可重复调用。若上一次以异步模式启动过 worker，
+	// 先停止并回收，再重建输出/格式对象——否则直接替换 unique_ptr
+	// 会让仍持有旧 out_/formater_ 的 worker 线程并发使用已析构对象 → UAF。
+	logger_.StopWorker();
+
 	//读取配置文件，配置文件决定上述四个数据
 	XConfig conf;
 	//这里是配置文件的处理，读取配置文件并将配置文件存储于map数据结构中
@@ -153,4 +159,10 @@ void LogFac::Init(bool isasync,const std::string& con_file){
 		logger_.SetOutput(make_unique<LogConsoleOutput>());
 	}
 
+}
+
+void LogFac::Shutdown(){
+	std::lock_guard<std::mutex> lock(init_mutex_);
+	// 停止异步 worker：先清空队列（worker 退出前会批量刷出剩余日志）再 join
+	logger_.StopWorker();
 }

@@ -184,6 +184,9 @@ static bool ParseUrl(const std::string& url, std::string& host, uint16_t& port, 
   ChunkedDownloadCallbacks callbacks_;
 
   mutable std::mutex mu_;
+  // P2 修复：meta 文件写串行化 —— 多个下载 worker 与调度线程并发 SaveMetaFile
+  // 时 write tmp + rename 会撕裂/损坏；此锁串行化所有 meta 读写。
+  mutable std::mutex meta_mu_;
   std::vector<ChunkInfo> chunks_;
   uint64_t total_bytes_{0};
   std::optional<uint64_t> expected_crc64_;

@@ -52,8 +52,16 @@ void *centralCache::fetchRange(size_t index,size_t batchNum,size_t &RealIncrease
 
       // 将从PageCache获取的内存块切分成小块，每一块大小为size
       char* start = static_cast<char*>(result);
-      //totalBlocks统计了我们申请的内存能分为多少个size
-      size_t totalBlocks = (SPAN_PAGES *pageCache::PAGE_SIZE) / size;
+      // 按真实分配的 span 页数计算可分割块数（H4 修复）：
+      // fetchFromPageCache 对 >32KB 的 size 会按 numPages=ceil(size/PAGE_SIZE) 申请，
+      // 原实现固定按 8 页计算，size>32768 时 totalBlocks=0 → allocBlocks=0，
+      // 上层 threadcache freeListSize_[index] += (RealIncrease - 1) 无符号下溢为 SIZE_MAX，
+      // 桶计数永久损坏、内存单调增长直至 OOM。
+      size_t spanPages = (size <= SPAN_PAGES * pageCache::PAGE_SIZE)
+                             ? SPAN_PAGES
+                             : (size + pageCache::PAGE_SIZE - 1) / pageCache::PAGE_SIZE;
+      size_t totalBlocks = (spanPages * pageCache::PAGE_SIZE) / size;
+      if (totalBlocks == 0) totalBlocks = 1;  // 纵深防御：确保至少 1 块，杜绝 0 下溢
       //allocBlocks标志着我们能最少能分配多少块
       //如果申请的内存分成size大小的个数不满足申请的个数(batchNum),那么就只能分配totalBlocks个
       //如果totalBlocks大于了batchNum，表示我们申请的个数多于所需的个数，那么分配batchNum个就可以了
@@ -71,9 +79,11 @@ void *centralCache::fetchRange(size_t index,size_t batchNum,size_t &RealIncrease
           //设置当前Block的下一个Block为next的地址
           *reinterpret_cast<void**>(current) = next;
         }
-        //如果无法构建链表说明allocBlocks=1,就把当前内存块指向下一个内存块的指针设置为空
-        *reinterpret_cast<void **>(start + (allocBlocks - 1) * size)= nullptr;
       }
+      // 无论块数多少都把最后一个块的空闲指针置空（H4 修复）：
+      // 原实现仅在 allocBlocks>1 时置空，allocBlocks==1 时首块 next 指针为未初始化垃圾，
+      // 归还时 returnRange 沿 next 遍历会读到野指针导致崩溃/内存损坏。
+      *reinterpret_cast<void **>(start + (allocBlocks - 1) * size)= nullptr;
 
       //构建保留在CentralCache的链表
       //操作方式同上(allocblocks>1)的操作

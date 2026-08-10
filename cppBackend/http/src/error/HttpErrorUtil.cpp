@@ -16,7 +16,6 @@
 std::string ToString(HttpErrc code) {
   switch (code) {
     case HttpErrc::OK: return "OK";
-    case HttpErrc::SSL_HANDSHAKE_FAILED: return "SSL_HANDSHAKE_FAILED";
     case HttpErrc::PARSE_EMPTY_INPUT: return "PARSE_EMPTY_INPUT";
     case HttpErrc::PARSE_TIMEOUT: return "PARSE_TIMEOUT";
     case HttpErrc::PARSE_INVALID_START_LINE: return "PARSE_INVALID_START_LINE";
@@ -51,7 +50,6 @@ std::string ToString(HttpErrc code) {
 std::string ToString(HttpErrorStage stage) {
   switch (stage) {
     case HttpErrorStage::UNKNOWN: return "unknown";
-    case HttpErrorStage::SSL: return "ssl";
     case HttpErrorStage::PARSING: return "parsing";
     case HttpErrorStage::VALIDATION: return "validation";
     case HttpErrorStage::ROUTING: return "routing";

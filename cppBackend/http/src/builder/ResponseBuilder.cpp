@@ -100,7 +100,7 @@ std::shared_ptr<HttpResponse> ResponseBuilder::Build() {
 ResponseBuilder& ResponseBuilder::Json(bool success, const std::string& message) {
   std::ostringstream json;
   json << "{\"success\":" << (success ? "true" : "false")
-       << ",\"message\":\"" << message << "\"}";
+       << ",\"message\":\"" << JsonEscape(message) << "\"}";
   
   response_->SetHeader("Content-Type", "application/json; charset=utf-8");
   response_->SetBody(json.str());
@@ -110,7 +110,7 @@ ResponseBuilder& ResponseBuilder::Json(bool success, const std::string& message)
 ResponseBuilder& ResponseBuilder::Json(bool success, const std::string& message, const std::string& data) {
   std::ostringstream json;
   json << "{\"success\":" << (success ? "true" : "false")
-       << ",\"message\":\"" << message << "\""
+       << ",\"message\":\"" << JsonEscape(message) << "\""
        << ",\"data\":" << data << "}";
   
   response_->SetHeader("Content-Type", "application/json; charset=utf-8");

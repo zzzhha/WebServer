@@ -16,9 +16,8 @@ bool RequestRateLimiter::CheckRateLimit(const std::string& identifier) {
     std::lock_guard<std::mutex> lock(records_mutex_);
     
     // 定期清理过期记录（每100个请求清理一次）
-    static int cleanup_counter = 0;
-    if (++cleanup_counter >= 100) {
-        cleanup_counter = 0;
+    if (++cleanup_counter_ >= 100) {
+        cleanup_counter_ = 0;
         if (!cleanup_running_.exchange(true)) {
             CleanupExpiredInternal();
             cleanup_running_.store(false);

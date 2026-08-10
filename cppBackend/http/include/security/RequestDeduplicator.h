@@ -44,6 +44,8 @@ private:
     std::unordered_map<std::string, DeduplicateRecord> request_cache_;
     std::mutex cache_mutex_;
     std::atomic<bool> cleanup_running_;
+    // 中危修复：清理计数改为成员变量（原 static 被所有实例共享，计数相互干扰）
+    int cleanup_counter_{0};
 
     // 清理过期记录的内部方法
     void CleanupExpiredInternal();

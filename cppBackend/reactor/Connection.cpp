@@ -34,6 +34,12 @@ EventLoop* Connection::getLoop() const{
   return loop_;
 }
 
+void Connection::PostIoTask(std::function<void()> task){
+  if (loop_) {
+    loop_->queueinloop(std::move(task));
+  }
+}
+
 void Connection::closecallback(){
 LOGINFO("正常关闭Connection");
   disconnect_=true;
@@ -397,18 +403,18 @@ LOGDEBUG("对方断开调用关闭");
     }
   } 
 }  
-void Connection::setclosecallback(std::function<void(spConnection)> fn){
+void Connection::setclosecallback(std::function<void(spIConnection)> fn){
   closecallback_=fn;
 }
   //fd_连接错误的回调函数
-void Connection::seterrorcallback(std::function<void(spConnection)> fn){
+void Connection::seterrorcallback(std::function<void(spIConnection)> fn){
   errorcallback_=fn;
 }
 
-void Connection::setonmessagecallback(std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock&*/)> fn){
+void Connection::setonmessagecallback(std::function<void(spIConnection/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock&*/)> fn){
   onmessagecallback_=fn;
 }
-void Connection::setsendcompletecallback(std::function<void(spConnection)> fn){
+void Connection::setsendcompletecallback(std::function<void(spIConnection)> fn){
   sendcompletecallback_=fn;
 }
 
@@ -418,11 +424,11 @@ void Connection::setsendcompletecallback(std::function<void(spConnection)> fn){
 // }
 //定时器
 
-void Connection::setupdatetimercallback(std::function<void(spConnection)> fn){
+void Connection::setupdatetimercallback(std::function<void(spIConnection)> fn){
   updatetimercallback_=fn;
 }
 
-void Connection::setclosetimercallback(std::function<void(spConnection)>fn){
+void Connection::setclosetimercallback(std::function<void(spIConnection)>fn){
   closetimercallback_=fn;
 }
 

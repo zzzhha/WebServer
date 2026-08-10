@@ -9,6 +9,7 @@ LogFileOutput::LogFileOutput() {
 }
 
 LogFileOutput::~LogFileOutput() {
+	std::lock_guard<std::mutex> lk(mu_);
 	if (ofs_.is_open()) {
 		ofs_.flush();
 		ofs_.close();
@@ -16,6 +17,11 @@ LogFileOutput::~LogFileOutput() {
 }
 
 void LogFileOutput::RotateLog() {
+	std::lock_guard<std::mutex> lk(mu_);
+	DoRotateLog();
+}
+
+void LogFileOutput::DoRotateLog() {
 	if (!ofs_.is_open()) {
 		return;
 	}
@@ -48,6 +54,7 @@ void LogFileOutput::RotateLog() {
 }
 
 bool LogFileOutput::Open(const std::string& file) {
+	std::lock_guard<std::mutex> lk(mu_);
 	if (ofs_.is_open()) {
 		ofs_.flush();
 		ofs_.close();
@@ -67,6 +74,7 @@ bool LogFileOutput::Open(const std::string& file) {
 }
 
 void LogFileOutput::Output(const string& log) {
+	std::lock_guard<std::mutex> lk(mu_);
 	if (!ofs_.is_open()) {
 		return;
 	}
@@ -83,7 +91,7 @@ void LogFileOutput::Output(const string& log) {
 		try {
 			auto pos = ofs_.tellp();
 			if (pos >= static_cast<streamoff>(max_file_size_)) {
-				RotateLog();
+				DoRotateLog();
 			}
 		} catch (...) {
 			// 忽略文件大小检查错误

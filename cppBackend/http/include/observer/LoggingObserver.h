@@ -15,9 +15,6 @@ public:
     LoggingObserver() = default;
     ~LoggingObserver() override = default;
 
-    // SSL处理阶段事件
-    void OnSslProcess(const std::string& event, const std::string& details) override;
-
     // HTTP解析阶段事件
     void OnHttpParse(const std::string& event, const std::string& details) override;
 

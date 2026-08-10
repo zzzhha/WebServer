@@ -96,6 +96,14 @@ LOGDEBUG("超时，将关闭操作提交到从事件循环");
 }
 void TimeWheel::add_connection(spConnection conn,int timeout){
   std::lock_guard<std::mutex> lock(mutex_);
+  // 低危修复：同一 fd 重复 add 时先移除旧节点，避免槽内残留过期节点。
+  // 旧实现靠 generation 跳过误触发，但残留节点到期时会误删 timer_map_ 中
+  // 指向新节点的条目，使新定时器失去可管理性。
+  auto it = timer_map_.find(conn->fd());
+  if (it != timer_map_.end()) {
+    wheel_[it->second->slot].erase(it->second);
+    timer_map_.erase(it);
+  }
   add_connection_unsafe(conn, timeout);
 }
 

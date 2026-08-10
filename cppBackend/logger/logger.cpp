@@ -133,6 +133,19 @@ void Logger::Init_Thread(){
 	}
 }
 
+void Logger::StopWorker() {
+	// 幂等：未被初始化（或已停止）时直接返回
+	if (!thread_initialized_.exchange(false)) {
+		return;
+	}
+	th_stop_ = true;
+	cond_.notify_all();
+	if (worker_ && worker_->joinable()) {
+		worker_->join();
+	}
+	worker_.reset();
+}
+
 void Logger::AddWorkLog(std::string&& log){
 	{
 		std::unique_lock<std::mutex> lock(mutex_);

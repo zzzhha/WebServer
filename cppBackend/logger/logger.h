@@ -50,6 +50,11 @@ public:
 	void SetThreadStopWhile(bool th_stop);
 	void Init_Thread();
 	void AddWorkLog(std::string&& log);
+
+	/// 停止异步工作线程并回收（幂等）：先置停转标记并唤醒，再 join 线程
+	/// 供 LogFac 重复 Init / 进程退出前主动 Shutdown 使用，避免输出对象在
+	/// worker 仍运行时被替换/析构导致 UAF（审计低危问题）
+	void StopWorker();
 	
 	/// 获取当前队列中的日志数量
 	size_t GetQueueSize() const;
@@ -78,7 +83,7 @@ private:
 	//工作线程是否被初始化
 	std::atomic_bool thread_initialized_{false};
 	//工作线程是否关闭
-	std::atomic_bool th_stop_;
+	std::atomic_bool th_stop_{false};
 	//工作线程锁
 	std::mutex mutex_;
 	//给子进程发送日志的队列

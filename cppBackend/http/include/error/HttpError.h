@@ -7,16 +7,13 @@
 
 enum class HttpErrorStage : uint8_t {
   UNKNOWN = 0,
-  SSL = 1,
-  PARSING = 2,
-  VALIDATION = 3,
-  ROUTING = 4
+  PARSING = 1,
+  VALIDATION = 2,
+  ROUTING = 3
 };
 
 enum class HttpErrc : uint16_t {
   OK = 0,
-
-  SSL_HANDSHAKE_FAILED = 1000,
 
   PARSE_EMPTY_INPUT = 1100,
   PARSE_TIMEOUT = 1101,

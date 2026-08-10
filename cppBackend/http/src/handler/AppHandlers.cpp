@@ -47,15 +47,30 @@ std::unordered_map<std::string, std::string> ParseFormData(const std::string& bo
 
         // URL 解码
         // 简单的 URL 解码（将 + 转换为空格，%XX 转换为字符）
+        // 中危修复：非法 % 序列（strtol 对非法串返回 0 → NUL）是 CRLF 注入前置；仅合法 hex 才解码，否则 '?' 占位
+        auto tryDecodeHex = [](const std::string& s, size_t i, char& out) -> bool {
+          const char h = s[i + 1];
+          const char l = s[i + 2];
+          auto isHex = [](char c) {
+            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+          };
+          if (!isHex(h) || !isHex(l)) return false;
+          char hex[3] = {h, l, '\0'};
+          out = static_cast<char>(strtol(hex, nullptr, 16));
+          return true;
+        };
+
         std::string decoded_key, decoded_value;
         for (size_t i = 0; i < key.length(); ++i) {
             if (key[i] == '+') {
                 decoded_key += ' ';
             } else if (key[i] == '%' && i + 2 < key.length()) {
-                // 简单的十六进制解码
-                char hex[3] = {key[i+1], key[i+2], '\0'};
-                char c = static_cast<char>(strtol(hex, nullptr, 16));
-                decoded_key += c;
+                char c = 0;
+                if (tryDecodeHex(key, i, c)) {
+                    decoded_key += c;
+                } else {
+                    decoded_key += '?';
+                }
                 i += 2;
             } else {
                 decoded_key += key[i];
@@ -66,9 +81,12 @@ std::unordered_map<std::string, std::string> ParseFormData(const std::string& bo
             if (value[i] == '+') {
                 decoded_value += ' ';
             } else if (value[i] == '%' && i + 2 < value.length()) {
-                char hex[3] = {value[i+1], value[i+2], '\0'};
-                char c = static_cast<char>(strtol(hex, nullptr, 16));
-                decoded_value += c;
+                char c = 0;
+                if (tryDecodeHex(value, i, c)) {
+                    decoded_value += c;
+                } else {
+                    decoded_value += '?';
+                }
                 i += 2;
             } else {
                 decoded_value += value[i];

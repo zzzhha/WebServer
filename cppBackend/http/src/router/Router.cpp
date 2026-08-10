@@ -384,6 +384,9 @@ void RouteGroup::SetPrefix(const std::string& prefix) {
 
 void RouteGroup::AddMiddleware(Middleware middleware) {
   if (middleware) {
+    // 低危修复：加锁注册，防止运行期并发 AddMiddleware 与
+    // AddRouteInGroup（读取组中间件）之间数据竞争
+    std::lock_guard<std::mutex> lock(mutex_);
     middlewares_.push_back(middleware);
   }
 }

@@ -7,7 +7,6 @@ class IHttpMessage;
 
 // HTTP服务器处理阶段枚举
 enum class HttpProcessStage {
-    SSL_PROCESS,      // SSL解析阶段
     HTTP_PARSE,       // HTTP解析阶段
     VALIDATION,       // 责任链验证阶段
     ROUTING,          // 路由处理阶段
@@ -18,9 +17,6 @@ enum class HttpProcessStage {
 class IHttpObserver{
 public:
   virtual ~IHttpObserver() = default;
-
-  // SSL处理阶段事件
-  virtual void OnSslProcess(const std::string& event, const std::string& details) {}
 
   // HTTP解析阶段事件
   virtual void OnHttpParse(const std::string& event, const std::string& details) {}

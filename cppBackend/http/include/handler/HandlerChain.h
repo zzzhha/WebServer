@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <vector>
 
 #include "handler/IRequestHandler.h"
@@ -49,4 +50,7 @@ private:
 
   std::vector<std::shared_ptr<IRequestHandler>> handlers_;
   std::shared_ptr<IRequestHandler> head_{};
+  // 低危修复：串行化运行期 AddHandler 注册（当前均为启动期注册；
+  // Handle 遍历责任链仍假设链在请求处理期间不变）
+  std::mutex mutex_;
 };

@@ -16,9 +16,8 @@ bool RequestDeduplicator::IsDuplicate(const std::string& request_hash) {
     std::lock_guard<std::mutex> lock(cache_mutex_);
     
     // 定期清理过期记录（每100个请求清理一次）
-    static int cleanup_counter = 0;
-    if (++cleanup_counter >= 100) {
-        cleanup_counter = 0;
+    if (++cleanup_counter_ >= 100) {
+        cleanup_counter_ = 0;
         if (!cleanup_running_.exchange(true)) {
             CleanupExpiredInternal();
             cleanup_running_.store(false);

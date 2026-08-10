@@ -46,6 +46,7 @@ void EventLoop::run(){
     //如果channel为空，表示超时，回调TcpServer::sepolltimeout()
     if(vcn.empty()) {
       epolltimeoutcallback_(this);
+      FlushDeferredFrees();
     }
     else{
       for(auto &ch:vcn){
@@ -53,7 +54,6 @@ LOGDEBUG("有新的事件准备处理");
       ch->handleevent();
       }
     }
-
     FlushDeferredFrees();
   }
 }

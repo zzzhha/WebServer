@@ -12,6 +12,8 @@ HandlerChain::HandlerChain() {
 
 void HandlerChain::AddHandler(std::shared_ptr<IRequestHandler> handler) {
   if (!handler) return;
+  // 低危修复：加锁注册，防止运行期并发 AddHandler 与 Handle 遍历的数据竞争
+  std::lock_guard<std::mutex> lock(mutex_);
   if (!head_) {
     head_ = handler;
   } else if (!handlers_.empty()) {

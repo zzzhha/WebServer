@@ -15,6 +15,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fstream>
+#include <random>
 #include <sstream>
 #include <sys/stat.h>
 
@@ -33,6 +34,16 @@ static bool IsSafeFileName(const std::string& v) {
   return true;
 }
 
+// H8 修复：uploadId 白名单校验 —— 仅允许字母数字、下划线、连字符，长度 1~64。
+// uploadId 会被拼接进目录路径（uploads_tmp/<uploadId>），若不校验可路径遍历逃逸。
+static bool IsSafeUploadId(const std::string& v) {
+  if (v.empty() || v.size() > 64) return false;
+  for (unsigned char c : v) {
+    if (!(std::isalnum(c) || c == '_' || c == '-')) return false;
+  }
+  return true;
+}
+
 static std::string GetLowerExt(const std::string& name) {
   auto pos = name.find_last_of('.');
   if (pos == std::string::npos) return "";
@@ -44,25 +55,46 @@ static std::string GetLowerExt(const std::string& name) {
 static bool IsAllowedInFolder(const std::string& folder, const std::string& name) {
   const std::string ext = GetLowerExt(name);
   if (folder == "images") {
-    return ext == "jpg" || ext == "jpeg" || ext == "png" || ext == "gif" || ext == "svg";
+    // H9 修复：移除 svg（可内嵌 <script>，匿名上传覆盖后构成存储型 XSS）
+    return ext == "jpg" || ext == "jpeg" || ext == "png" || ext == "gif";
   }
   if (folder == "video") {
     return ext == "mp4" || ext == "webm" || ext == "avi";
   }
   if (folder == "uploads") {
+    // H9 修复：移除 svg（同上，防存储型 XSS）
     return ext == "pdf" || ext == "txt" || ext == "jpg" || ext == "jpeg" || ext == "png" || ext == "gif" ||
-           ext == "svg" || ext == "mp4" || ext == "webm" || ext == "avi";
+           ext == "mp4" || ext == "webm" || ext == "avi";
   }
   return false;
 }
 
 static std::string NewUploadId() {
-  auto now = std::chrono::system_clock::now().time_since_epoch();
-  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-  unsigned r = static_cast<unsigned>(std::rand());
-  std::ostringstream oss;
-  oss << ms << "-" << std::hex << r;
-  return oss.str();
+  // 中危修复：原实现 std::rand()+时间戳可预测，可被猜到他人会话；
+  // 改用系统随机源生成 32 位十六进制（128 bit）
+  std::random_device rd;
+  std::string id;
+  id.reserve(32);
+  const char* hex = "0123456789abcdef";
+  for (int i = 0; i < 16; ++i) {
+    const unsigned char b = static_cast<unsigned char>(rd() & 0xff);
+    id += hex[b >> 4];
+    id += hex[b & 0x0f];
+  }
+  return id;
+}
+
+// 中危修复：删除上传会话临时目录（分片 + meta），成功后清理防止临时文件堆积
+static void RemoveSessionDir(const std::string& dir) {
+  DIR* d = opendir(dir.c_str());
+  if (!d) return;
+  while (auto* ent = readdir(d)) {
+    const std::string name = ent->d_name;
+    if (name == "." || name == "..") continue;
+    ::remove((dir + "/" + name).c_str());
+  }
+  closedir(d);
+  ::rmdir(dir.c_str());
 }
 
 static bool ReadMeta(const std::string& dir, std::string& fileName, long long& fileSize, int& chunkSize, std::string& folder) {
@@ -154,6 +186,11 @@ bool UploadService::HandleInit(HttpRequest* request, HttpResponse& response, con
   }
 
   if (uploadId.empty()) uploadId = NewUploadId();
+  // H8 修复：客户端可指定 uploadId（断点续传），必须白名单校验，防路径遍历逃逸 uploads_tmp
+  if (!IsSafeUploadId(uploadId)) {
+    SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "非法uploadId参数");
+    return true;
+  }
   const std::string dir = root + "/" + uploadId;
   if (!EnsureDir(dir)) {
     SetJsonErrorResponse(response, HttpStatusCode::INTERNAL_SERVER_ERROR, "无法创建上传会话");
@@ -203,8 +240,17 @@ bool UploadService::HandleUploadPart(HttpRequest* request, HttpResponse& respons
     return true;
   }
   const std::string uploadId = *uploadIdOpt;
-  const int partNo = std::atoi(partNoOpt->c_str());
-  if (uploadId.empty() || partNo < 0) {
+  // 中危修复：partNo 全量数字校验 + 上限（防 atoi 部分解析与磁盘耗尽 DoS）
+  const std::string partNoStr = *partNoOpt;
+  char* end = nullptr;
+  long partNo = std::strtol(partNoStr.c_str(), &end, 10);
+  constexpr long kMaxPartNo = 1000000;
+  if (end == partNoStr.c_str() || *end != '\0' || partNo < 0 || partNo > kMaxPartNo) {
+    SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "非法参数");
+    return true;
+  }
+  // H8 修复：uploadId 白名单校验，防路径遍历逃逸 uploads_tmp
+  if (!IsSafeUploadId(uploadId)) {
     SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "非法参数");
     return true;
   }
@@ -229,7 +275,7 @@ bool UploadService::HandleUploadPart(HttpRequest* request, HttpResponse& respons
     return true;
   }
 
-  const std::string partPath = PartPath(dir, partNo);
+  const std::string partPath = PartPath(dir, static_cast<int>(partNo));
   std::ofstream out(partPath, std::ios::binary | std::ios::trunc);
   if (!out) {
     SetJsonErrorResponse(response, HttpStatusCode::INTERNAL_SERVER_ERROR, "无法写入分片");
@@ -265,6 +311,11 @@ bool UploadService::HandleComplete(HttpRequest* request, HttpResponse& response,
     return true;
   }
   const std::string uploadId = *uploadIdOpt;
+  // H8 修复：uploadId 白名单校验，防路径遍历逃逸 uploads_tmp
+  if (!IsSafeUploadId(uploadId)) {
+    SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "非法uploadId参数");
+    return true;
+  }
 
   const std::string dir = static_path + "/uploads_tmp/" + uploadId;
   std::string fileName;
@@ -280,7 +331,24 @@ bool UploadService::HandleComplete(HttpRequest* request, HttpResponse& response,
     return true;
   }
 
+  // 中危修复：meta.txt 可被客户端篡改，fileSize/chunkSize 不可信。
+  // 校验上下限，防 chunkSize=1 时 partCount 达 2 亿次 stat（CPU DoS）与除法溢出。
+  constexpr long long kMaxUploadBytes = 200LL * 1024 * 1024;
+  constexpr int kMinChunkSize = 1024;
+  constexpr int kMaxChunkSize = 8 * 1024 * 1024;
+  if (fileSize <= 0 || fileSize > kMaxUploadBytes || chunkSize < kMinChunkSize ||
+      chunkSize > kMaxChunkSize) {
+    SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "非法上传参数");
+    return true;
+  }
+
   const long long partCount = (fileSize + chunkSize - 1) / chunkSize;
+  // 中危修复：分片数上限（200MB / 1KB ≈ 20 万分片，1M 为安全裕量）
+  constexpr long long kMaxPartCount = 1000000;
+  if (partCount > kMaxPartCount) {
+    SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "分片数量超限");
+    return true;
+  }
   for (int i = 0; i < partCount; i += 1) {
     struct stat st;
     if (stat(PartPath(dir, i).c_str(), &st) != 0 || !S_ISREG(st.st_mode)) {
@@ -296,6 +364,12 @@ bool UploadService::HandleComplete(HttpRequest* request, HttpResponse& response,
   }
 
   const std::string finalPath = finalDir + "/" + fileName;
+  // H9 修复：禁止覆盖已有文件 —— 匿名上传可覆盖静态资源/同名文件，构成完整性破坏与存储型 XSS
+  struct stat final_st;
+  if (stat(finalPath.c_str(), &final_st) == 0) {
+    SetJsonErrorResponse(response, HttpStatusCode::CONFLICT, "目标文件已存在，禁止覆盖");
+    return true;
+  }
   std::ofstream out(finalPath, std::ios::binary | std::ios::trunc);
   if (!out) {
     SetJsonErrorResponse(response, HttpStatusCode::INTERNAL_SERVER_ERROR, "无法写入目标文件");
@@ -316,6 +390,9 @@ bool UploadService::HandleComplete(HttpRequest* request, HttpResponse& response,
     }
   }
   out.close();
+
+  // 中危修复：合并成功后清理整个会话临时目录（分片 + meta），防止临时文件无限堆积
+  RemoveSessionDir(dir);
 
   std::ostringstream data;
   data << "{";

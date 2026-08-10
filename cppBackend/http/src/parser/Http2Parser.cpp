@@ -12,6 +12,10 @@ int Http2Parser::Parse(std::string&, std::unique_ptr<IHttpMessage>& out) {
 }
 
 int Http2Parser::Parse(const char* data, size_t len, std::unique_ptr<IHttpMessage>& out) {
+  // 低危修复：data==nullptr 时 std::string(data, data+len) 是未定义行为（防御性）
+  if (!data || len == 0) {
+    return static_cast<int>(ParseResult::UNSUPPORTEDVERSION);
+  }
   std::string buf(data, data + len);
   return Parse(buf, out);
 }

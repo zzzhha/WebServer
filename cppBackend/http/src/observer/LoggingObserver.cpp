@@ -4,21 +4,6 @@
 #include "core/HttpRequest.h"
 #include <sstream>
 
-void LoggingObserver::OnSslProcess(const std::string& event, const std::string& details) {
-    std::string message = FormatLogMessage("SSL解析", event, details);
-    
-    // 根据事件类型选择日志级别
-    if (event.find("失败") != std::string::npos || event.find("错误") != std::string::npos) {
-        //ERROR(message);
-    } else if (event.find("警告") != std::string::npos) {
-        //WARNING(message);
-    } else if (event.find("完成") != std::string::npos || event.find("成功") != std::string::npos) {
-        //INFO(message);
-    } else {
-        //DEBUG(message);
-    }
-}
-
 void LoggingObserver::OnHttpParse(const std::string& event, const std::string& details) {
     std::string message = FormatLogMessage("HTTP解析", event, details);
     
@@ -82,9 +67,6 @@ void LoggingObserver::OnMessage(const IHttpMessage& message) {
 void LoggingObserver::OnStageEvent(HttpProcessStage stage, const std::string& event, const std::string& details) {
     std::string stageName;
     switch (stage) {
-        case HttpProcessStage::SSL_PROCESS:
-            stageName = "SSL解析";
-            break;
         case HttpProcessStage::HTTP_PARSE:
             stageName = "HTTP解析";
             break;

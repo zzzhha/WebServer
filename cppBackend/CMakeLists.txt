@@ -1,12 +1,21 @@
 cmake_minimum_required(VERSION 3.10)
 project(httpserver)
 
-# 设置C++标准
-set(CMAKE_CXX_STANDARD 17)
+# Step 1: WORKS 执行器替换需要 C++20 协程/概念相关编译能力。
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # 设置编译器标志
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pthread")
+
+include(FetchContent)
+FetchContent_Declare(
+    concurrencpp
+    GIT_REPOSITORY https://github.com/David-Haim/concurrencpp.git
+    GIT_TAG        v.0.1.7
+)
+FetchContent_MakeAvailable(concurrencpp)
 
 # 手动查找MySQL头文件和库
 find_path(MYSQL_INCLUDE_DIR
@@ -61,6 +70,7 @@ include_directories(
     ${MYSQL_INCLUDE_DIR}
     ${OPENSSL_INCLUDE_DIR}
     .
+    net
     http
     logger
     MemoryPool
@@ -72,6 +82,7 @@ include_directories(
     download/include
     views/include
     auth/jwt
+    proactor
 )
 
 # HTTP模块源文件
@@ -199,6 +210,22 @@ set(REACTOR_SOURCES
     reactor/ThreadPool.h
 )
 
+set(NET_SOURCES
+    net/IConnection.h
+    net/INetServer.h
+    net/NetFactory.h
+    net/NetFactory.cpp
+)
+
+set(PROACTOR_SOURCES
+    proactor/UringConnection.h
+    proactor/UringConnection.cpp
+    proactor/UringWorker.h
+    proactor/UringWorker.cpp
+    proactor/UringServer.h
+    proactor/UringServer.cpp
+)
+
 set(DOWNLOAD_SOURCES
     download/src/SimpleHttpClient.cpp
     download/src/ChunkedDownloadManager.cpp
@@ -220,6 +247,8 @@ add_executable(${PROJECT_NAME}
     ${LOGGER_SOURCES}
     ${MEMORY_POOL_SOURCES}
     ${MYSQL_SOURCES}
+    ${NET_SOURCES}
+    ${PROACTOR_SOURCES}
     ${REACTOR_SOURCES}
     ${TIMER_SOURCES}
     ${SERVICES_SOURCES}
@@ -231,9 +260,11 @@ add_executable(${PROJECT_NAME}
 # 链接库
 target_link_libraries(${PROJECT_NAME}
     http  # http 库
+    concurrencpp::concurrencpp
     ${MYSQL_LIBRARY}
     ${OPENSSL_LIBRARIES}
     pthread
     m
     rt
+    uring
 )

@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 project(httpserver)
 
-# 设置C++标准
-set(CMAKE_CXX_STANDARD 17)
+# Step 1: 为 concurrencpp 和后续协程预留升级到 C++20。
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+enable_testing()
 
 # 前端资源目录
 set(FRONTEND_DIR ${CMAKE_SOURCE_DIR}/Frontend)

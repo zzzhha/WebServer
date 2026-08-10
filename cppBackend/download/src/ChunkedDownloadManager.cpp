@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <new>
 #include <sstream>
 #include <sys/statvfs.h>
 
@@ -38,7 +39,15 @@ std::vector<ChunkInfo> ChunkedDownloadManager::BuildChunks(uint64_t total_bytes,
   std::vector<ChunkInfo> out;
   if (total_bytes == 0 || chunk_size_bytes == 0) return out;
   uint64_t count = DivideRoundUp(total_bytes, chunk_size_bytes);
-  out.reserve(static_cast<size_t>(count));
+  // P2 修复：total_bytes 来自远端 Content-Length（strtoull 无上限），count 可能极大。
+  // reserve 巨量内存抛 bad_alloc → terminate；加上限 + try/catch 防护。
+  constexpr uint64_t kMaxChunkCount = 5000000;
+  if (count > kMaxChunkCount) return out;
+  try {
+    out.reserve(static_cast<size_t>(count));
+  } catch (const std::bad_alloc&) {
+    return out;
+  }
   for (uint64_t i = 0; i < count; ++i) {
     ChunkInfo ci;
     ci.index = i;
@@ -343,6 +352,8 @@ void ChunkedDownloadManager::ProgressLoop() {
  * 返回: 成功/失败；失败表示需要走首次初始化流程
  */
 bool ChunkedDownloadManager::LoadMetaFile() {
+  std::lock_guard<std::mutex> meta_lk(meta_mu_);
+
   std::string mp = MetaPath();
   if (!fs::exists(mp)) return false;
 
@@ -356,6 +367,7 @@ bool ChunkedDownloadManager::LoadMetaFile() {
   uint64_t chunk = 0;
   std::optional<std::string> md5;
   uint64_t chunk_count = 0;
+  std::vector<uint64_t> crcs;
 
   std::vector<int> states;
   std::vector<int> retries;
@@ -371,6 +383,18 @@ bool ChunkedDownloadManager::LoadMetaFile() {
       chunk_count = std::strtoull(line.substr(12).c_str(), nullptr, 10);
       states.resize(static_cast<size_t>(chunk_count), 0);
       retries.resize(static_cast<size_t>(chunk_count), 0);
+    } else if (line.rfind("chunk_crcs=", 0) == 0) {
+      // P2 修复：恢复各分块 CRC64（逗号分隔十六进制），否则重启后 VerifyCrc64 必失败
+      const std::string v = line.substr(11);
+      size_t start = 0;
+      while (start <= v.size()) {
+        size_t comma = v.find(',', start);
+        const std::string tok =
+            v.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+        if (!tok.empty()) crcs.push_back(std::strtoull(tok.c_str(), nullptr, 16));
+        if (comma == std::string::npos) break;
+        start = comma + 1;
+      }
     } else if (line.size() > 2 && line[0] == 'c') {
       size_t eq = line.find('=');
       if (eq == std::string::npos) continue;
@@ -421,20 +445,25 @@ bool ChunkedDownloadManager::LoadMetaFile() {
   {
     std::lock_guard<std::mutex> lk(mu_);
     chunks_ = std::move(cs);
+    if (!crcs.empty()) chunk_crc64s_ = std::move(crcs);
   }
   return true;
 }
 
 /**
  * 保存 .meta 元数据文件（原子写入：先写 tmp，再重命名）
- * 内容: url/dest/total/chunk/md5/chunk_count 以及每个分块的状态与重试次数
+ * 内容: url/dest/total/chunk/md5/chunk_count/chunk_crcs 以及每个分块的状态与重试次数
+ * P2 修复：meta_mu_ 串行化并发写入（write tmp + rename 非线程安全）；持久化 chunk_crc64s_
  */
 bool ChunkedDownloadManager::SaveMetaFile() const {
+  std::lock_guard<std::mutex> meta_lk(meta_mu_);
+
   std::string tmp = MetaPath() + ".tmp";
   std::ofstream out(tmp, std::ios::trunc);
   if (!out.is_open()) return false;
 
   std::vector<ChunkInfo> cs;
+  std::vector<uint64_t> crcs;
   uint64_t total = 0;
   std::optional<uint64_t> crc64;
   {
@@ -442,6 +471,7 @@ bool ChunkedDownloadManager::SaveMetaFile() const {
     cs = chunks_;
     total = total_bytes_;
     crc64 = expected_crc64_;
+    crcs = chunk_crc64s_;
   }
 
   out << "v=1\n";
@@ -451,6 +481,12 @@ bool ChunkedDownloadManager::SaveMetaFile() const {
   out << "chunk=" << config_.chunk_size_bytes << "\n";
   out << "crc64=" << (crc64 ? Crc64Util::ToHex(*crc64) : "") << "\n";
   out << "chunk_count=" << cs.size() << "\n";
+  out << "chunk_crcs=";
+  for (size_t i = 0; i < crcs.size(); ++i) {
+    if (i) out << ",";
+    out << Crc64Util::ToHex(crcs[i]);
+  }
+  out << "\n";
 
   for (const auto& c : cs) {
     int st = 0;
@@ -756,7 +792,9 @@ bool ChunkedDownloadManager::MergeParts(std::string& error) {
     return false;
   }
 
-  fs::remove(dest_path_, ec);
+  // 低危修复：去掉合并前的 fs::remove(dest_path_)，直接 rename 原子覆盖。
+  // 旧实现"先 remove 再 rename"存在窗口：remove 成功后若 rename 失败，
+  // 旧的目标文件已被删除 → 数据丢失。POSIX rename 对已存在目标原子替换。
   fs::rename(tmp, dest_path_, ec);
   if (ec) {
     error = "rename output failed";

@@ -4,7 +4,45 @@
 #include "../../http/include/handler/AppHandlers.h"  // 使用AppHandlers中的GetContentType工具函数
 #include "../../logger/log_fac.h"
 #include "FileServeUtil.h"
+#include <algorithm>
 #include <sys/stat.h>
+
+namespace {
+
+// 中危修复：If-None-Match 支持逗号分隔多值 / 弱 ETag（W/"..."）前缀比较
+bool IfNoneMatchMatches(const std::string& header, const std::string& etag) {
+  auto stripWeak = [](std::string v) {
+    if (v.size() >= 3 && (v[0] == 'W' || v[0] == 'w') && v[1] == '/') v = v.substr(2);
+    return v;
+  };
+  const std::string target = stripWeak(etag);
+  size_t pos = 0;
+  while (pos <= header.size()) {
+    size_t comma = header.find(',', pos);
+    std::string tok =
+        header.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos);
+    const size_t b = tok.find_first_not_of(" \t");
+    const size_t e = tok.find_last_not_of(" \t");
+    if (b != std::string::npos) {
+      tok = tok.substr(b, e - b + 1);
+      if (tok == "*") return true;
+      if (stripWeak(tok) == target) return true;
+    }
+    if (comma == std::string::npos) break;
+    pos = comma + 1;
+  }
+  return false;
+}
+
+// 中危修复：日志注入防护 —— 用户可控值写入日志前剥离 CR/LF
+std::string SanitizeForLog(const std::string& v) {
+  std::string out = v;
+  out.erase(std::remove(out.begin(), out.end(), '\r'), out.end());
+  out.erase(std::remove(out.begin(), out.end(), '\n'), out.end());
+  return out;
+}
+
+}  // namespace
 
 // 处理静态文件请求
 bool StaticFileService::HandleStaticFile(HttpRequest* request, HttpResponse& response, const std::string& static_path) {
@@ -47,7 +85,7 @@ bool StaticFileService::HandleStaticFile(HttpRequest* request, HttpResponse& res
             response.SetStatusCode(HttpStatusCode::INTERNAL_SERVER_ERROR);
             response.SetHeader("Content-Type", "text/plain");
             response.SetBody("Internal Server Error");
-            LOGERROR("无法获取文件信息: " + full_path);
+            LOGERROR("无法获取文件信息: " + SanitizeForLog(full_path));
             return true;
         }
 

@@ -6,6 +6,12 @@
 #include <sstream>
 #include <iomanip>
 
+// mysql_real_escape_string 转义后最多写入 2*len+1 字节（2*len 数据 + 结尾 NUL）。
+// 必须在转义之前校验，否则超长输入会先写穿栈上缓冲区、之后才走到长度检查。
+static bool EscapedLengthFits(size_t srcLen, size_t bufSize) {
+    return srcLen <= (bufSize - 1) / 2;
+}
+
 // 生成UUID v4
 std::string UserDao::GenerateUUID() {
     // 使用thread_local确保每个线程有自己的随机数生成器实例
@@ -54,6 +60,10 @@ bool UserDao::InsertUser(const std::string& username, const std::string& passwor
     }
     
     char esc_username[512] = {0}; // 用户名最大255字符，转义后最多510字符
+    if (!EscapedLengthFits(username.size(), sizeof(esc_username))) {
+        LOGERROR("InsertUser: username too long to escape safely");
+        return false;
+    }
     size_t username_len = mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
     if (username_len >= sizeof(esc_username)) {
         LOGERROR("InsertUser: escaped username too long");
@@ -101,6 +111,10 @@ std::optional<UserInfo> UserDao::QueryUserByUsername(const std::string& username
     // 转义特殊字符
     // 根据MySQL文档，转义后的字符串最多可能比原字符串长一倍
     char esc_username[512] = {0}; // 用户名最大255字符，转义后最多510字符
+    if (!EscapedLengthFits(username.size(), sizeof(esc_username))) {
+        LOGERROR("QueryUserByUsername: username too long to escape safely");
+        return std::nullopt;
+    }
     size_t username_len = mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
     if (username_len >= sizeof(esc_username)) {
         LOGERROR("QueryUserByUsername: escaped username too long");
@@ -160,6 +174,10 @@ bool UserDao::UserExists(const std::string& username) {
     // 转义特殊字符
     // 根据MySQL文档，转义后的字符串最多可能比原字符串长一倍
     char esc_username[512] = {0}; // 用户名最大255字符，转义后最多510字符
+    if (!EscapedLengthFits(username.size(), sizeof(esc_username))) {
+        LOGERROR("UserExists: username too long to escape safely");
+        return false;
+    }
     size_t username_len = mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
     if (username_len >= sizeof(esc_username)) {
         LOGERROR("UserExists: escaped username too long");
@@ -202,6 +220,10 @@ bool UserDao::DeleteUser(const std::string& username) {
     // 转义特殊字符
     // 根据MySQL文档，转义后的字符串最多可能比原字符串长一倍
     char esc_username[512] = {0}; // 用户名最大255字符，转义后最多510字符
+    if (!EscapedLengthFits(username.size(), sizeof(esc_username))) {
+        LOGERROR("DeleteUser: username too long to escape safely");
+        return false;
+    }
     size_t username_len = mysql_real_escape_string(sql, esc_username, username.c_str(), username.size());
     if (username_len >= sizeof(esc_username)) {
         LOGERROR("DeleteUser: escaped username too long");

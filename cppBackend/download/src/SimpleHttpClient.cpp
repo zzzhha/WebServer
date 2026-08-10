@@ -207,6 +207,13 @@ static bool ReadHttpResponse(int fd, bool want_body, HttpResponseData& out, std:
     content_len = static_cast<size_t>(std::strtoull(it->second.c_str(), nullptr, 10));
   }
 
+  // P2 修复：远端 Content-Length 可任意大（strtoull 无上限），直接分配会 bad_alloc → terminate
+  constexpr size_t kMaxResponseBody = 512ULL * 1024 * 1024;
+  if (content_len > kMaxResponseBody) {
+    error = "content-length too large";
+    return false;
+  }
+
   if (body_prefix.size() > content_len) body_prefix.resize(content_len);
   out.body = body_prefix;
 

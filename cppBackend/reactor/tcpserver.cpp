@@ -32,6 +32,9 @@ void TcpServer::start(){
   time_wheel_.start();
   mainloop_->run();
 }
+void TcpServer::Stop(){
+  stop();
+}
 void TcpServer::stop(){
   //停止主事件循环
   mainloop_->stop();
@@ -73,10 +76,15 @@ LOGDEBUG("设置新连接");
   if(newconnectioncb_)newconnectioncb_(conn);
 }
 
-void TcpServer::closeconnection(spConnection conn){
+void TcpServer::closeconnection(spIConnection conn){
+  if (!conn) {
+    return;
+  }
   if(closeconnectioncb_)closeconnectioncb_(conn);
   //ts_timer_.cancel(conn->get_timer_id());
-  time_wheel_.remove_connection(conn);
+  if (auto reactor_conn = std::dynamic_pointer_cast<Connection>(conn)) {
+    time_wheel_.remove_connection(reactor_conn);
+  }
   //printf("client(eventfd=%d) disconnected.\n",conn->fd());
   {
     std::lock_guard<std::mutex> lock(mmutex_);
@@ -85,10 +93,15 @@ void TcpServer::closeconnection(spConnection conn){
 
 }
 
-void TcpServer::errorconnection(spConnection conn){
+void TcpServer::errorconnection(spIConnection conn){
+  if (!conn) {
+    return;
+  }
   if(errorconnectioncb_) errorconnectioncb_(conn);
   //ts_timer_.cancel(conn->get_timer_id());
-  time_wheel_.remove_connection(conn);
+  if (auto reactor_conn = std::dynamic_pointer_cast<Connection>(conn)) {
+    time_wheel_.remove_connection(reactor_conn);
+  }
   {
     std::lock_guard<std::mutex> lock(mmutex_);
     conns_.erase(conn->fd());
@@ -96,12 +109,12 @@ void TcpServer::errorconnection(spConnection conn){
 
 }
 
-void TcpServer::message(spConnection conn/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock*/)
+void TcpServer::message(spIConnection conn/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock*/)
 {
   if(onmessagecb_)onmessagecb_(conn/*暂且先注释了等后面需要用到工作线程在开出来,buf*/);
 }
 
-void TcpServer::sendcomplete(spConnection conn){
+void TcpServer::sendcomplete(spIConnection conn){
   //printf("send complete.\n");
 
   if(sendcompletecb_)sendcompletecb_(conn);
@@ -110,21 +123,73 @@ void TcpServer::epolltimeout(EventLoop*loop){
   if(timeoutcb_) timeoutcb_(loop);
 }
 
-void TcpServer::setnewconnection(std::function<void(spConnection)>fn){
+void TcpServer::setnewconnectioncb(ConnCallback cb){
+  newconnectioncb_=std::move(cb);
+}
+void TcpServer::setcloseconnectioncb(ConnCallback cb){
+  closeconnectioncb_=std::move(cb);
+}
+void TcpServer::seterrorconnectioncb(ConnCallback cb){
+  errorconnectioncb_=std::move(cb);
+}
+void TcpServer::setonmessagecb(ConnCallback cb){
+  onmessagecb_=std::move(cb);
+}
+void TcpServer::setsendcompletecb(ConnCallback cb){
+  sendcompletecb_=std::move(cb);
+}
+
+void TcpServer::setnewconnection(ConnCallback fn){
   newconnectioncb_=fn;
 }     
-void TcpServer::setcloseconnection(std::function<void(spConnection)>fn){
+void TcpServer::setcloseconnection(ConnCallback fn){
   closeconnectioncb_=fn;
 }         
-void TcpServer::seterrorconnection(std::function<void(spConnection)>fn){
+void TcpServer::seterrorconnection(ConnCallback fn){
   errorconnectioncb_=fn;
 }        
-void TcpServer::setonmessage(std::function<void(spConnection/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock&*/)>fn){
+void TcpServer::setonmessage(ConnCallback fn){
   onmessagecb_=fn;
 }      
-void TcpServer::setsendcomplete(std::function<void(spConnection)>fn){
+void TcpServer::setsendcomplete(ConnCallback fn){
   sendcompletecb_=fn;
 }    
+
+void TcpServer::setnewconnection(std::function<void(spConnection)> fn){
+  newconnectioncb_ = [fn = std::move(fn)](spIConnection conn){
+    if (auto reactor_conn = std::dynamic_pointer_cast<Connection>(conn)) {
+      fn(std::move(reactor_conn));
+    }
+  };
+}
+void TcpServer::setcloseconnection(std::function<void(spConnection)> fn){
+  closeconnectioncb_ = [fn = std::move(fn)](spIConnection conn){
+    if (auto reactor_conn = std::dynamic_pointer_cast<Connection>(conn)) {
+      fn(std::move(reactor_conn));
+    }
+  };
+}
+void TcpServer::seterrorconnection(std::function<void(spConnection)> fn){
+  errorconnectioncb_ = [fn = std::move(fn)](spIConnection conn){
+    if (auto reactor_conn = std::dynamic_pointer_cast<Connection>(conn)) {
+      fn(std::move(reactor_conn));
+    }
+  };
+}
+void TcpServer::setonmessage(std::function<void(spConnection)> fn){
+  onmessagecb_ = [fn = std::move(fn)](spIConnection conn){
+    if (auto reactor_conn = std::dynamic_pointer_cast<Connection>(conn)) {
+      fn(std::move(reactor_conn));
+    }
+  };
+}
+void TcpServer::setsendcomplete(std::function<void(spConnection)> fn){
+  sendcompletecb_ = [fn = std::move(fn)](spIConnection conn){
+    if (auto reactor_conn = std::dynamic_pointer_cast<Connection>(conn)) {
+      fn(std::move(reactor_conn));
+    }
+  };
+}
 
 //时间戳
 // void TcpServer::settimeout(std::function<void(EventLoop*)> fn){
@@ -176,7 +241,11 @@ void TcpServer::add_new_conn_timernode(spConnection conn) {
     // 添加到时间轮，设置超时时间
     time_wheel_.add_connection(conn, ts_tcp_conn_timeout_s_);
 }
-void TcpServer::update_conn_timeout_time(spConnection conn) {
+void TcpServer::update_conn_timeout_time(spIConnection conn) {
+    auto reactor_conn = std::dynamic_pointer_cast<Connection>(conn);
+    if (!reactor_conn) {
+      return;
+    }
     // 更新时间轮中的定时器
-    time_wheel_.update_connection(conn, ts_tcp_conn_timeout_s_);
+    time_wheel_.update_connection(reactor_conn, ts_tcp_conn_timeout_s_);
 }

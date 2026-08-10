@@ -7,6 +7,43 @@
 #include <algorithm>
 #include <sys/stat.h>
 
+namespace {
+
+// 中危修复：日志注入防护 —— 用户可控值写入日志前剥离 CR/LF
+std::string SanitizeForLog(const std::string& v) {
+  std::string out = v;
+  out.erase(std::remove(out.begin(), out.end(), '\r'), out.end());
+  out.erase(std::remove(out.begin(), out.end(), '\n'), out.end());
+  return out;
+}
+
+// 中危修复：If-None-Match 支持逗号分隔多值 / 弱 ETag（W/"..."）前缀比较
+bool IfNoneMatchMatches(const std::string& header, const std::string& etag) {
+  auto stripWeak = [](std::string v) {
+    if (v.size() >= 3 && (v[0] == 'W' || v[0] == 'w') && v[1] == '/') v = v.substr(2);
+    return v;
+  };
+  const std::string target = stripWeak(etag);
+  size_t pos = 0;
+  while (pos <= header.size()) {
+    size_t comma = header.find(',', pos);
+    std::string tok =
+        header.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos);
+    const size_t b = tok.find_first_not_of(" \t");
+    const size_t e = tok.find_last_not_of(" \t");
+    if (b != std::string::npos) {
+      tok = tok.substr(b, e - b + 1);
+      if (tok == "*") return true;
+      if (stripWeak(tok) == target) return true;
+    }
+    if (comma == std::string::npos) break;
+    pos = comma + 1;
+  }
+  return false;
+}
+
+}  // namespace
+
 // 处理下载请求
 bool DownloadService::HandleDownload(HttpRequest* request, HttpResponse& response, const std::string& static_path) {
     if (!request) {
@@ -43,7 +80,7 @@ bool DownloadService::HandleDownload(HttpRequest* request, HttpResponse& respons
             
             // 验证文件夹只能是images、video或uploads
             if (folder != "images" && folder != "video" && folder != "uploads") {
-                LOGWARNING("下载失败：非法的文件夹 - " + folder);
+                LOGWARNING("下载失败：非法的文件夹 - " + SanitizeForLog(folder));
                 response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
                 response.SetHeader("Content-Type", "text/plain");
                 response.SetBody("Bad Request");
@@ -74,7 +111,7 @@ bool DownloadService::HandleDownload(HttpRequest* request, HttpResponse& respons
     
     if (filename.find('/') != std::string::npos || filename.find('\\') != std::string::npos ||
         filename.find("..") != std::string::npos || filename.find('\0') != std::string::npos) {
-        LOGWARNING("下载失败：非法的文件名 - " + filename);
+        LOGWARNING("下载失败：非法的文件名 - " + SanitizeForLog(filename));
         response.SetStatusCode(HttpStatusCode::BAD_REQUEST);
         response.SetHeader("Content-Type", "text/plain");
         response.SetBody("Bad Request");
@@ -82,11 +119,13 @@ bool DownloadService::HandleDownload(HttpRequest* request, HttpResponse& respons
     }
 
     // 构建文件路径
-    std::string file_path = static_path + "/" + folder + "/" + filename;
-
-    // 业务验证：验证文件路径安全性
-    if (!ValidateFilePath(file_path)) {
-        LOGWARNING("下载失败：文件路径不安全 - " + file_path);
+    // H10 修复：统一走 ResolvePathUnderRoot（weakly_canonical 解析符号链接 + 前缀比对），
+    // 替代仅字符串过滤的 ValidateFilePath——后者拦不住静态目录内指向根目录外
+    // （如 /etc/passwd）的符号链接，stat/SetSendFile 会跟随链接实现任意文件读取。
+    std::string rel_path = folder + "/" + filename;
+    std::string file_path;
+    if (!FileServeUtil::ResolvePathUnderRoot(static_path, rel_path, file_path)) {
+        LOGWARNING("下载失败：文件路径不安全 - " + SanitizeForLog(rel_path));
         response.SetStatusCode(HttpStatusCode::FORBIDDEN);
         response.SetHeader("Content-Type", "text/plain");
         response.SetBody("Forbidden");
@@ -96,7 +135,7 @@ bool DownloadService::HandleDownload(HttpRequest* request, HttpResponse& respons
     // 业务判断：检查文件是否存在
     struct stat file_stat;
     if (stat(file_path.c_str(), &file_stat) != 0 || !S_ISREG(file_stat.st_mode)) {
-        LOGWARNING("下载失败：文件不存在 - " + file_path);
+        LOGWARNING("下载失败：文件不存在 - " + SanitizeForLog(file_path));
         response.SetStatusCode(HttpStatusCode::NOT_FOUND);
         response.SetHeader("Content-Type", "text/plain");
         response.SetBody("Not Found");
@@ -106,7 +145,7 @@ bool DownloadService::HandleDownload(HttpRequest* request, HttpResponse& respons
     // 1. 设置 HTTP 缓存头 (Last-Modified / Cache-Control)
     uint64_t file_size = 0;
     if (!FileServeUtil::GetFileSize(file_path, file_size)) {
-        LOGERROR("下载失败：无法获取文件信息 - " + file_path);
+        LOGERROR("下载失败：无法获取文件信息 - " + SanitizeForLog(file_path));
         response.SetStatusCode(HttpStatusCode::INTERNAL_SERVER_ERROR);
         response.SetHeader("Content-Type", "text/plain");
         response.SetBody("Internal Server Error");
@@ -149,7 +188,12 @@ bool DownloadService::HandleDownload(HttpRequest* request, HttpResponse& respons
         if (v.empty()) v = "download";
         return v;
     };
-    response.SetHeader("Content-Disposition", "attachment; filename=\"" + sanitize_filename(filename) + "\"");
+    // 低危修复：默认 inline，允许 <video>/<img> 内嵌播放；
+    // 仅当客户端显式携带 ?download=1 时才返回 attachment（强制下载）。
+    // 前端下载按钮通过 <a download> 属性即可触发下载，不依赖服务端 attachment。
+    bool force_download = request->GetQueryParam("download") == "1";
+    std::string disposition = force_download ? "attachment" : "inline";
+    response.SetHeader("Content-Disposition", disposition + "; filename=\"" + sanitize_filename(filename) + "\"");
 
     FileRange range;
     auto range_value = request->GetHeader("Range");
@@ -158,7 +202,10 @@ bool DownloadService::HandleDownload(HttpRequest* request, HttpResponse& respons
             response.SetStatusCode(HttpStatusCode::RANGE_NOT_SATISFIABLE);
             response.SetHeader("Content-Range", "bytes */" + std::to_string(file_size));
             response.SetHeader("Content-Type", "text/plain");
-            response.SetBody("Range Not Satisfiable");
+            // 中危修复：HEAD 请求按规范不得返回 body
+            if (request->GetMethod() != HttpMethod::HEAD) {
+                response.SetBody("Range Not Satisfiable");
+            }
             return true;
         }
     }
@@ -202,28 +249,6 @@ bool DownloadService::HandleDownload(HttpRequest* request, HttpResponse& respons
 
 // 验证文件路径安全性
 // 安全检查：
-// 1. 防止路径遍历攻击（../ 和 ..\\）
-// 2. 防止空字符注入
-// 3. 注意：绝对路径检查由调用方处理（通过static_path限制）
-bool DownloadService::ValidateFilePath(const std::string& file_path) {
-    // 防止路径遍历攻击：检查是否包含 ../
-    if (file_path.find("../") != std::string::npos) {
-        return false;
-    }
-
-    // 防止路径遍历攻击：检查是否包含 ..\\（Windows路径）
-    if (file_path.find("..\\") != std::string::npos) {
-        return false;
-    }
-
-    // 验证路径格式：不能包含空字符（防止空字符注入攻击）
-    if (file_path.find('\0') != std::string::npos) {
-        return false;
-    }
-
-    return true;
-}
-
 // 检查文件是否存在
 bool DownloadService::FileExists(const std::string& file_path) {
     struct stat file_stat;

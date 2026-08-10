@@ -34,12 +34,6 @@ set(STRATEGY_SOURCES
   strategy/ParseStrategy.cpp
 )
 
-set(SSL_SOURCES
-  ssl/SslHandler.cpp
-  ssl/SslFactory.cpp
-  ssl/SslContext.cpp
-)
-
 set(ROUTER_SOURCES
   router/Router.cpp
 )
@@ -66,15 +60,11 @@ set(HTTP_SOURCES
   ${FACTORY_SOURCES}
   ${OBSERVER_SOURCES}
   ${STRATEGY_SOURCES}
-  ${SSL_SOURCES}
   ${ROUTER_SOURCES}
   ${ERROR_SOURCES}
   ${SECURITY_SOURCES}
   ${SERVER_SOURCES}
 )
-
-# 查找 OpenSSL 库
-find_package(OpenSSL REQUIRED)
 
 # 获取项目根目录（http 的父目录）
 get_filename_component(PROJECT_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
@@ -88,7 +78,4 @@ target_include_directories(http PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../../include  # http/include
     ${PROJECT_ROOT_DIR}  # 项目根目录，用于访问 mysql 和 logger
 )
-
-# 链接 OpenSSL 库到静态库
-target_link_libraries(http PUBLIC OpenSSL::SSL OpenSSL::Crypto)
 

@@ -3,6 +3,7 @@
 #include<fstream>
 #include<string>
 #include<atomic>
+#include<mutex>
 class LogFileOutput :public LogOutput
 {
 public:
@@ -25,6 +26,8 @@ public:
 	void SetMaxFiles(size_t count) { max_files_ = count; }
 	
 private:
+	// P2 修复：同步模式下多线程并发写 ofs_ / RotateLog close-reopen 竞态 → 互斥串行化
+	std::mutex mu_;
 	std::ofstream ofs_;
 	std::string filename_;
 	std::string base_filename_;
@@ -33,7 +36,9 @@ private:
 	size_t max_file_size_ = 10 * 1024 * 1024;
 	size_t max_files_ = 5;
 	
-	/// 滚动日志文件
+	/// 滚动日志文件（带锁包装）
 	void RotateLog();
+	/// 滚动日志文件（无锁内部实现，调用方需持有 mu_）
+	void DoRotateLog();
 };
 

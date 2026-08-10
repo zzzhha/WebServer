@@ -8,6 +8,36 @@
 #include <cctype>
 #include <string>
 
+namespace {
+
+// 中危修复：检测前对 URL 做一次解码（非法 % 序列占位 '?'，不产生控制字符），
+// 使编码/大写形式的攻击串（%3Cscript、UNION SELECT）也能被命中
+std::string DecodeUrlForCheck(const std::string& s) {
+  std::string out;
+  out.reserve(s.size());
+  auto isHex = [](char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+  };
+  auto hexVal = [](char c) -> int {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    return c - 'A' + 10;
+  };
+  for (size_t i = 0; i < s.size(); ++i) {
+    if (s[i] == '%' && i + 2 < s.size() && isHex(s[i + 1]) && isHex(s[i + 2])) {
+      out += static_cast<char>((hexVal(s[i + 1]) << 4) | hexVal(s[i + 2]));
+      i += 2;
+    } else if (s[i] == '+') {
+      out += ' ';
+    } else {
+      out += s[i];
+    }
+  }
+  return out;
+}
+
+}  // namespace
+
 SecurityValidationHandler::SecurityValidationHandler(
     size_t max_body_size,
     size_t max_url_length,
@@ -216,10 +246,13 @@ bool SecurityValidationHandler::CheckSuspiciousPatterns(const HttpRequest& reque
   const std::string& path = request.GetPath();
   const std::string& url = request.GetUrl();
 
-  // 检查SQL注入常见模式（简单检测）
+  // 中危修复：url 是编码后原文且原先未小写，大写/编码攻击串可绕过检测。
+  // 先对 url 做一次 URL 解码（非法 % 序列占位 '?'），再统一小写比对。
   std::string lower_path = path;
   LowerAsciiInPlace(lower_path);
-  
+  std::string lower_url = DecodeUrlForCheck(url);
+  LowerAsciiInPlace(lower_url);
+
   // 检查常见的SQL注入关键词（简单检测，实际应该更复杂）
   std::vector<std::string> suspicious_patterns = {
     "union select", "drop table", "delete from", 
@@ -228,16 +261,20 @@ bool SecurityValidationHandler::CheckSuspiciousPatterns(const HttpRequest& reque
 
   for (const auto& pattern : suspicious_patterns) {
     if (lower_path.find(pattern) != std::string::npos ||
-        url.find(pattern) != std::string::npos) {
+        lower_url.find(pattern) != std::string::npos) {
       return false;
     }
   }
 
-  // 检查XSS常见模式
+  // 检查XSS常见模式（path 与解码后的 url 都检查，堵住大写/编码绕过）
   if (lower_path.find("<script") != std::string::npos ||
       lower_path.find("javascript:") != std::string::npos ||
       lower_path.find("onerror=") != std::string::npos ||
-      lower_path.find("onload=") != std::string::npos) {
+      lower_path.find("onload=") != std::string::npos ||
+      lower_url.find("<script") != std::string::npos ||
+      lower_url.find("javascript:") != std::string::npos ||
+      lower_url.find("onerror=") != std::string::npos ||
+      lower_url.find("onload=") != std::string::npos) {
     return false;
   }
 

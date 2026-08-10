@@ -90,28 +90,33 @@ std::vector<std::string> DownloadTaskManager::GetUserTasks(const std::string& us
 }
 
 bool DownloadTaskManager::RemoveTask(const std::string& task_id) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  auto it = tasks_.find(task_id);
-  if (it == tasks_.end()) {
-    return false;
-  }
+  std::shared_ptr<ChunkedDownloadManager> manager;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = tasks_.find(task_id);
+    if (it == tasks_.end()) {
+      return false;
+    }
+    // 先在锁内摘除任务（含索引），再在锁外执行 Cancel。
+    // 旧实现持锁调用 Cancel（内部 join 最长 3s），期间 SubmitTask/GetTask
+    // 等全局表操作全部阻塞（审计低危）。
+    manager = it->second;
+    tasks_.erase(it);
 
-  // 停止任务（如果还在运行）
-  it->second->Cancel();
-  
-  // 从 user_tasks_ 中移除
-  // 这里需要遍历所有用户找到该任务，或者在 task key 中包含 user id 信息来反查
-  // 由于 GenerateTaskKey 包含 user_id，我们可以解析它，或者简单遍历
-  // 简单起见，遍历 user_tasks_
-  for (auto& [uid, tasks] : user_tasks_) {
-    auto tit = std::find(tasks.begin(), tasks.end(), task_id);
-    if (tit != tasks.end()) {
-      tasks.erase(tit);
-      break; 
+    // 从 user_tasks_ 中移除
+    for (auto& [uid, tasks] : user_tasks_) {
+      auto tit = std::find(tasks.begin(), tasks.end(), task_id);
+      if (tit != tasks.end()) {
+        tasks.erase(tit);
+        break;
+      }
     }
   }
 
-  tasks_.erase(it);
+  // 锁外停止任务（如果还在运行）
+  if (manager) {
+    manager->Cancel();
+  }
   return true;
 }
 

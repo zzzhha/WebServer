@@ -76,16 +76,24 @@ std::string RequestProtectionManager::GenerateRequestHash(const HttpRequest& req
     hash_input << request.GetBody();
     
     // 使用SHA256计算哈希
+    // 低危修复：检查每个 EVP_* 返回值（低内存/初始化失败时可能返回0），
+    // 失败时释放上下文并返回空串，避免向 NULL 上下文传参导致崩溃
     EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
-    const EVP_MD* md = EVP_sha256();
+    if (!mdctx) {
+        return "";
+    }
     unsigned char hash[EVP_MAX_MD_SIZE];
-    unsigned int hash_len;
-    
-    EVP_DigestInit_ex(mdctx, md, NULL);
+    unsigned int hash_len = 0;
+
     std::string input_str = hash_input.str();
-    EVP_DigestUpdate(mdctx, input_str.c_str(), input_str.length());
-    EVP_DigestFinal_ex(mdctx, hash, &hash_len);
+    const EVP_MD* md = EVP_sha256();
+    bool ok = EVP_DigestInit_ex(mdctx, md, NULL) == 1 &&
+              EVP_DigestUpdate(mdctx, input_str.c_str(), input_str.length()) == 1 &&
+              EVP_DigestFinal_ex(mdctx, hash, &hash_len) == 1;
     EVP_MD_CTX_free(mdctx);
+    if (!ok || hash_len == 0) {
+        return "";
+    }
     
     // 转换为十六进制字符串
     std::stringstream ss;

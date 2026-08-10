@@ -16,13 +16,14 @@ class BufferBlock{
 
     Block(size_t cap):capacity(cap),size(0){
       data =MemoryPool::allocate(cap);
-      //data = ConcurrentAlloc(cap);
-      //data = new char[cap];
     }
 
     ~Block(){
       if(data){
-        DeferDeallocate(data, size);
+        // H5 修复：按 capacity 归还，而不是已用字节 size。
+        // 原实现归还 size（如容量2048只用了100字节 → 归入104字节桶），
+        // 桶语义错乱、内存驻留放大（H4 放大因子）。
+        DeferDeallocate(data, capacity);
       }
     }
 
@@ -39,7 +40,8 @@ class BufferBlock{
     Block& operator=(Block&& other) noexcept {
       if (this != &other) {
         if(data){
-          DeferDeallocate(data, size);
+          // H5 修复：同析构，按 capacity 归还
+          DeferDeallocate(data, capacity);
         }
         data = other.data;
         size = other.size;

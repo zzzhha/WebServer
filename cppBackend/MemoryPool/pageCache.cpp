@@ -57,16 +57,19 @@ void pageCache::deallocateSpan(void* ptr, size_t numPages){
   std::lock_guard<std::mutex> lock(mutex_);
 
   //查找对应的span，没找到代表不是PageCache分配的内存，直接返回
+  //（释放时条目被立即erase，重复释放同一ptr或指向已释放span时均会在此返回）
   auto it = spanMap_.find(ptr);
-  if (it == spanMap_.end()) return;
+  if (it == spanMap_.end() || !it->second) return;
 
-  Span* span = it->second.get();
+  std::unique_ptr<Span> spanPtr = std::move(it->second);
+  spanMap_.erase(it);
+  Span* span = spanPtr.get();
 
-  //尝试合并相邻的span
+  //尝试合并相邻的span：右邻居须仍然存活（未被释放）才可能出现在空闲链表中
   void *nextAddr = static_cast<char*>(ptr) + numPages * PAGE_SIZE;
   auto nextIt = spanMap_.find(nextAddr);
 
-  if(nextIt != spanMap_.end()){
+  if(nextIt != spanMap_.end() && nextIt->second){
     Span *nextSpan = nextIt->second.get();
 
     //检查nextSpan是否在空闲链表中
@@ -101,7 +104,7 @@ void pageCache::deallocateSpan(void* ptr, size_t numPages){
   //将合并后的span通过头插法插入空闲列表
   auto& list = freeSpans_[span->numPages];
   span->next = std::move(list);
-  list = std::move(it->second);
+  list = std::move(spanPtr);
 }
 
 void* pageCache::systemAlloc(size_t numPages){

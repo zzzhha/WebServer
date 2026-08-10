@@ -23,6 +23,8 @@ public:
         std::chrono::system_clock::time_point issued_at;
         std::chrono::system_clock::time_point expires_at;
         std::string jwt_id;
+        // 中危修复：token 类型（"access"/"refresh"），用于 RefreshToken 类型校验
+        std::string token_type;
     };
 
     // 生成JWT token
@@ -51,8 +53,10 @@ public:
     static std::optional<std::string> ExtractUserId(const std::string& token);
 
 private:
-    // 固定的开发环境密钥
-    static const std::string SECRET_KEY;
+    // 密钥来源（H6 修复）：优先读取环境变量 JWT_SECRET_KEY；
+    // 未设置时进程内随机生成（不再存在可离线伪造的固定硬编码密钥）。
+    // 部署时轮换：修改环境变量并重启进程即可。
+    static std::string GetSecretKey();
     
     // 访问令牌过期时间（24小时）
     static const std::chrono::hours ACCESS_TOKEN_EXPIRATION;

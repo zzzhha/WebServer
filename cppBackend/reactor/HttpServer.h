@@ -1,8 +1,6 @@
 #pragma once
-#include"tcpserver.h"
-#include"Eventloop.h"
-#include"Connection.h"
 #include"ThreadPool.h"
+#include"../net/INetServer.h"
 #include"../logger/log_fac.h"
 #include"Buffer.h"
 #include"../http/include/core/HttpRequest.h"
@@ -13,11 +11,13 @@
 #include"../http/include/handler/AppHandlers.h"
 #include"../services/include/AuthService.h"
 #include"../services/include/DownloadService.h"
+#include "concurrencpp/concurrencpp.h"
 #include <memory>
 #include <fstream>
 #include <sys/stat.h>
 #include <vector>
 #include <mutex>
+#include <condition_variable>
 #include <atomic>
 #include <deque>
 #include <map>
@@ -33,7 +33,7 @@ class TlsContext;
  * 继承和使用了TcpServer的接口来处理网络事件
  */
 class HttpServer{
-public:
+private:
   struct WorkResult;
 
   struct PendingChunk {
@@ -48,6 +48,7 @@ public:
     std::deque<PendingChunk> queued_chunks;         //待处理的 HTTP 请求数据块队列
     size_t queued_bytes{0};                         //连接级待处理字节数，用于背压控制
     bool worker_running{false};                     //标记是否有 worker 线程正在处理该连接的数据
+    bool coroutine_running{false};                  //标记是否已有协程路径在处理该连接
     uint64_t next_enqueue_seq{1};                   //保证入队顺序的序列号生成器
     uint64_t next_response_seq{1};                  //保证响应顺序的序列号生成器
     uint64_t last_applied_response_seq{0};          //记录最后应用的响应序列号
@@ -57,6 +58,7 @@ public:
     size_t max_concurrent_workers{4};               //单连接最大并发 worker 数
     bool draining{false};                           //排空模式：不再启动新 worker
     std::mutex facade_mutex;                        //保护 facade 的独占访问
+    std::vector<concurrencpp::result<void>> pending_coro_results; // 停机时收集协程结果，避免 broken_task
   };
 
   struct WorkResult {
@@ -83,8 +85,6 @@ public:
     std::chrono::steady_clock::time_point io_enqueue_tp;// IO入队时间点
   };
 
-private:
-
   struct RouteMetric {
     uint64_t requests{0};                            // 请求总数
     uint64_t errors{0};                                // 错误数量
@@ -100,12 +100,18 @@ private:
     uint64_t sendfile_bytes{0};                        // 文件发送总字节数
   };
 
-  TcpServer tcpserver_;                   // TCP服务器实例
+  std::unique_ptr<INetServer> net_server_; // 网络后端实例（当前由工厂创建）
   ThreadPool threadpool_;                 // 工作线程池
+  std::shared_ptr<concurrencpp::runtime> cc_runtime_;
+  std::shared_ptr<concurrencpp::thread_pool_executor> works_executor_;
+  std::shared_ptr<concurrencpp::thread_pool_executor> blocking_executor_;
   std::string static_path_;               // 静态资源路径
   std::shared_ptr<Router> router_;
   std::shared_ptr<TlsContext> tls_ctx_;
   std::atomic<uint64_t> request_seq_{0};
+  std::atomic<size_t> pending_work_count_{0};
+  std::mutex drain_mutex_;
+  std::condition_variable drain_cv_;
   std::mutex metrics_mutex_;
   std::unordered_map<std::string, RouteMetric> route_metrics_;
   std::atomic<uint64_t> metrics_observed_{0};
@@ -115,6 +121,8 @@ private:
   size_t max_conn_pending_bytes_{512 * 1024};
   size_t max_concurrent_workers_per_conn_{4};
   size_t max_apply_per_batch_{16};
+  std::mutex tracked_ctxs_mutex_;
+  std::vector<std::weak_ptr<ConnectionWorkContext>> tracked_ctxs_;
   
 public:
   /**
@@ -132,9 +140,9 @@ public:
    * @param connpoolnum 数据库连接池大小
    * @param static_path 静态资源根路径
    */
-  HttpServer(const std::string &ip,uint16_t port,int timeoutMS,bool OptLinger=true,
+  HttpServer(std::unique_ptr<INetServer> net_server,
 int sqlPort=3306,const char*sqlUser="webuser",const char*sqlPwd="12589777",const char*dbName="webserver",
-int subthreadnum=6,int workthreadnum=0,int connpoolnum=12,const std::string&static_path="./html");
+int workthreadnum=0,int connpoolnum=12,const std::string&static_path="./html");
   
   /**
    * 析构函数
@@ -155,31 +163,31 @@ int subthreadnum=6,int workthreadnum=0,int connpoolnum=12,const std::string&stat
    * 处理新客户端连接请求
    * @param conn 新连接对象
    */
-  void HandleNewConnection(spConnection conn);
+  void HandleNewConnection(spIConnection conn);
   
   /**
    * 处理客户端连接关闭
    * @param conn 关闭的连接对象
    */
-  void HandleClose(spConnection conn);
+  void HandleClose(spIConnection conn);
   
   /**
    * 处理客户端连接错误
    * @param conn 错误的连接对象
    */
-  void HandleError(spConnection conn);
+  void HandleError(spIConnection conn);
   
   /**
    * 处理客户端请求报文
    * @param conn 连接对象(包含请求数据)
    */
-  void HandleMessage(spConnection conn/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock& buffer*/);
+  void HandleMessage(spIConnection conn/*暂且先注释了等后面需要用到工作线程在开出来,BufferBlock& buffer*/);
   
   /**
    * 处理数据发送完成事件
    * @param conn 发送完成的连接对象
    */
-  void HandleSendComplete(spConnection conn);
+  void HandleSendComplete(spIConnection conn);
   //void HandleTimeOut(EventLoop*loop);  //epoll_wait()超时处理
 
 private:
@@ -218,22 +226,29 @@ private:
   };
 
   void ProcessRequest(HttpRequest* request, HttpResponse& response);
-  void HandleMessageInWorker(std::weak_ptr<Connection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx);
-  void ProcessSingleRequest(std::weak_ptr<Connection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx, PendingChunk chunk, std::shared_ptr<RequestContext> req_ctx = nullptr);
-  void OnWorkerExit(std::shared_ptr<ConnectionWorkContext> ctx, std::shared_ptr<Connection> conn);
-  void PostResultToIoLoop(std::weak_ptr<Connection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx, WorkResult result);
+  bool PostWorkTask(std::function<void()> task, bool enforce_backpressure = true);
+  bool PostBlockingTask(std::function<void()> task);
+  void HandleMessageInWorker(std::weak_ptr<IConnection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx);
+  void ProcessSingleRequest(std::weak_ptr<IConnection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx, PendingChunk chunk, std::shared_ptr<RequestContext> req_ctx = nullptr);
+  
+  // 预留协程开关与入口 (Step 6)
+  bool coroutine_enabled_{false};
+  concurrencpp::result<void> HandleMessageCoro(std::weak_ptr<IConnection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx);
+
+  void OnWorkerExit(std::shared_ptr<ConnectionWorkContext> ctx, spIConnection conn);
+  void PostResultToIoLoop(std::weak_ptr<IConnection> weak_conn, std::shared_ptr<ConnectionWorkContext> ctx, WorkResult result);
   void CloseSendFileFd(WorkResult& result);
-  void SendServiceUnavailable(spConnection conn, const std::string& reason);
+  void SendServiceUnavailable(spIConnection conn, const std::string& reason);
   void RecordPhase3Metrics(const WorkResult& result, long io_flush_ms, long pipeline_ms);
   void MaybeLogPhase3Snapshot();
-  void PhaseParseAndRoute(std::weak_ptr<Connection> weak_conn,
+  void PhaseParseAndRoute(std::weak_ptr<IConnection> weak_conn,
                            std::shared_ptr<ConnectionWorkContext> ctx,
                            PendingChunk& chunk,
                            std::shared_ptr<RequestContext> req_ctx);
-  void PhaseIoOperation(std::weak_ptr<Connection> weak_conn,
+  void PhaseIoOperation(std::weak_ptr<IConnection> weak_conn,
                          std::shared_ptr<ConnectionWorkContext> ctx,
                          std::shared_ptr<RequestContext> req_ctx);
-  void PhaseSerializeAndSend(std::weak_ptr<Connection> weak_conn,
+  void PhaseSerializeAndSend(std::weak_ptr<IConnection> weak_conn,
                               std::shared_ptr<ConnectionWorkContext> ctx,
                               PendingChunk& chunk,
                               std::shared_ptr<RequestContext> req_ctx);

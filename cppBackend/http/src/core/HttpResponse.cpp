@@ -1,6 +1,7 @@
 #include"core/HttpResponse.h"
 #include <cctype>
 #include "util/HttpStringUtil.h"
+#include "../../logger/log_fac.h"
 
 HttpResponse::HttpResponse() : 
     version_(HttpVersion::HTTP_1_1), 
@@ -174,7 +175,10 @@ void HttpResponse::SetStatusCodeInt(int code) {
     case 504: statusCode_ = HttpStatusCode::GATEWAY_TIMEOUT; break;
     case 505: statusCode_ = HttpStatusCode::HTTP_VERSION_NOT_SUPPORTED; break;
 
-    default : statusCode_ = HttpStatusCode::NOT_FOUND; break;
+    default : statusCode_ = HttpStatusCode::NOT_FOUND; 
+      // 低危修复：未知状态码不再静默吞掉——记录日志，便于定位误用
+      LOGWARNING("HttpResponse::SetStatusCodeInt unknown code, mapped to 404");
+      break;
   }
 }
 
@@ -182,7 +186,13 @@ std::string HttpResponse::Serialize() const {
   std::string result = GetVersionStr() + " " + std::to_string(static_cast<int>(statusCode_)) + " " + statusReason_ + "\r\n";
 
   if (!HasHeader("Content-Length") && !HasHeader("Transfer-Encoding")) {
-    result += "content-length: " + std::to_string(body_.size()) + "\r\n";
+    // 低危修复：sendfile 场景下不再输出 content-length: 0。
+    // 旧实现无论是否 sendfile 都按 body_.size()（此时为 0）输出 Content-Length，
+    // 而文件字节随后由 sendfile 链路追加，客户端读到 0 会提前认为响应结束。
+    // sendfile 调用方须显式设置 Content-Length（项目内调用方均已设置）。
+    if (!send_file_enabled_) {
+      result += "content-length: " + std::to_string(body_.size()) + "\r\n";
+    }
   }
 
   for(auto &pair : headers_) {

@@ -446,10 +446,22 @@ std::string HttpRequest::UrlDecode(const std::string& str) const {
           result += ' ';
           i++;
       } else if (str[i] == '%' && i + 2 < len) {
-          uint8_t high = HexToByte(str[i + 1]);
-          uint8_t low = HexToByte(str[i + 2]);
-          result += static_cast<char>((high << 4) | low);
-          i += 3;
+          // 中危修复：非法 % 序列（%zz）原先经 HexToByte 解码为 NUL/乱码，是 CRLF 注入等缺陷的前置条件。
+          // 仅当两个字符均为合法十六进制时才解码，否则以 '?' 占位（不产生控制字符）。
+          const char h = str[i + 1];
+          const char l = str[i + 2];
+          auto isHex = [](char c) {
+            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+          };
+          if (isHex(h) && isHex(l)) {
+            uint8_t high = HexToByte(h);
+            uint8_t low = HexToByte(l);
+            result += static_cast<char>((high << 4) | low);
+            i += 3;
+          } else {
+            result += '?';
+            i += 3;  // 跳过整个非法序列
+          }
       } else {
           result += str[i];
           i++;
@@ -580,7 +592,15 @@ void HttpRequest::SetMethod(HttpMethod method) {
 }
 
 void HttpRequest::SetPath(std::string_view path) {
-  path_ = LowerAsciiCopy(path);
+  std::string normalized = LowerAsciiCopy(path);
+  if (!normalized.empty() && normalized[0] == '/') {
+    // 低危修复：规范化 `.`/`..` 段并拒绝逃逸根目录，
+    // 防止业务侧把未清理的原始路径塞入后绕过下游的遍历校验。
+    if (!NormalizePath(normalized)) {
+      normalized = "/";
+    }
+  }
+  path_ = std::move(normalized);
   RebuildUrl();
 }
 

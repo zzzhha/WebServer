@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 #include <functional>
+#include <mutex>
 #include <shared_mutex>
 #include <optional>
 
@@ -135,12 +136,17 @@ public:
   // 获取前缀
   std::string GetPrefix() const { return prefix_; }
   
-  // 获取中间件列表
-  const std::vector<Middleware>& GetMiddlewares() const { return middlewares_; }
+  // 获取中间件列表（返回拷贝，避免与并发 AddMiddleware 的写竞争）
+  std::vector<Middleware> GetMiddlewares() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return middlewares_;
+  }
 
 private:
   std::string prefix_;
   std::vector<Middleware> middlewares_;
+  // 低危修复：串行化中间件注册，防止运行期并发 AddMiddleware 数据竞争（当前均为启动期注册）
+  mutable std::mutex mutex_;
 };
 
 /**
