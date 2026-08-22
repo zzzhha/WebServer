@@ -1560,19 +1560,22 @@ void HttpServer::SetupRoutes(Router& router) {
     return true;
   });
 
-  // ===== 上传 / 文件 API 已注销（H7：无鉴权，匿名可写）=====
-  // 前端无上传入口（resumableUpload.ts 未被任何组件调用），且这些接口可被匿名
-  // 直接调用（上传文件、枚举目录、覆盖静态资源）。按决策注销，攻击面立即消除。
+  // ===== 文件 API 说明 =====
+  // GET /api/files：只读枚举列表，已恢复启用。仅列出 images/video/uploads 目录中
+  // 白名单扩展名的文件名（FileApiService::HandleListFiles），与公开的 /images/*、
+  // /video/* 静态读取一致，不暴露额外攻击面（无写入能力）。
+  // 上传 / 写类接口保持注销（H7：无鉴权，匿名可写）：前端无上传入口
+  // （resumableUpload.ts 未被任何组件调用），且匿名可上传文件、覆盖静态资源。
   // H8（uploadId 路径遍历）、H9（覆盖已有文件 / SVG XSS）已在 UploadService.cpp
   // 代码层修复（IsSafeUploadId 白名单 + 禁止覆盖 + 去 svg）。
-  // 后续若需启用：挂 JWT 鉴权中间件（Router::AddMiddlewareForPath + AuthService::ValidateToken）
+  // 后续若需启用写接口：挂 JWT 鉴权中间件（Router::AddMiddlewareForPath + AuthService::ValidateToken）
   // 后取消注释即可。
   //
-  // router.Get("/api/files", [this](IHttpMessage& message, HttpResponse& response, const RouteParams&) {
-  //   auto* request = dynamic_cast<HttpRequest*>(&message);
-  //   if (!request) return false;
-  //   return FileApiService::HandleListFiles(request, response, static_path_);
-  // });
+  router.Get("/api/files", [this](IHttpMessage& message, HttpResponse& response, const RouteParams&) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return FileApiService::HandleListFiles(request, response, static_path_);
+  });
   //
   // router.Get("/api/files/preview", [this](IHttpMessage& message, HttpResponse& response, const RouteParams&) {
   //   auto* request = dynamic_cast<HttpRequest*>(&message);
