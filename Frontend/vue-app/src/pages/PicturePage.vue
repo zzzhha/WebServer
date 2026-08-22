@@ -81,7 +81,7 @@ onMounted(() => {
         </template>
       </div>
       <div class="image-actions">
-        <a class="action-btn" :href="item.downloadUrl">下载</a>
+        <a class="action-btn" :href="item.downloadUrl + '?download=1'">下载</a>
         <button class="action-btn" type="button" @click="openZoom(item.url)">点击放大</button>
       </div>
     </div>

@@ -8,6 +8,7 @@ type AuthLoginResponse = {
   status?: number
   data?: {
     token?: string
+    refresh_token?: string
   }
 }
 
