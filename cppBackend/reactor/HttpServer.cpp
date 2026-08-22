@@ -35,8 +35,11 @@
 #include<sstream>
 #include<atomic>
 #include<chrono>
+#include<cstdio>
 #include<cstdlib>
 #include<stdexcept>
+
+std::atomic<bool> HttpServer::dump_requested{false};
 
 namespace {
 
@@ -196,7 +199,61 @@ HttpServer::~HttpServer(){
 }
 void HttpServer::start(){
   LOGINFO("Http服务器启动");
+
+  // 诊断：SIGUSR1 触发连接状态转储（排查高并发挂死）
+  std::thread dump_thread([this]() {
+    while (true) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      if (dump_requested.exchange(false)) {
+        DumpConnectionStates();
+      }
+    }
+  });
+  dump_thread.detach();
+
   net_server_->start();
+}
+
+void HttpServer::DumpConnectionStates() {
+  FILE* f = fopen("/tmp/conn_dump.txt", "w");
+  if (!f) return;
+  fprintf(f, "=== conn dump t=%ld ===\n", static_cast<long>(time(nullptr)));
+
+  // 1) proactor 连接层状态
+  if (auto* uring_server = dynamic_cast<UringServer*>(net_server_.get())) {
+    uring_server->DumpConnections(f);
+  }
+
+  // 2) 业务层连接上下文状态
+  fprintf(f, "--- HttpServer ctxs ---\n");
+  std::vector<std::weak_ptr<ConnectionWorkContext>> snapshot;
+  {
+    std::lock_guard<std::mutex> lock(tracked_ctxs_mutex_);
+    snapshot = tracked_ctxs_;
+  }
+  for (const auto& weak : snapshot) {
+    auto ctx = weak.lock();
+    if (!ctx) continue;
+    int fd = -1;
+    {
+      std::lock_guard<std::mutex> lock(ctx->mutex);
+      auto conn = ctx->conn.lock();
+      fd = conn ? conn->fd() : -1;
+      fprintf(f,
+              "  ctx fd=%d worker_running=%d active_workers=%zu draining=%d "
+              "coroutine_running=%d queued_chunks=%zu queued_bytes=%zu "
+              "pending_results=%zu next_seq=%llu last_applied=%llu\n",
+              fd, ctx->worker_running ? 1 : 0, ctx->active_worker_count,
+              ctx->draining ? 1 : 0, ctx->coroutine_running ? 1 : 0,
+              ctx->queued_chunks.size(), ctx->queued_bytes,
+              ctx->pending_results.size(),
+              static_cast<unsigned long long>(ctx->next_response_seq),
+              static_cast<unsigned long long>(ctx->last_applied_response_seq));
+    }
+  }
+  fflush(f);
+  fclose(f);
+  LOGWARNING("connection state dumped to /tmp/conn_dump.txt");
 }
 
 bool HttpServer::PostWorkTask(std::function<void()> task, bool enforce_backpressure) {
@@ -337,6 +394,7 @@ void HttpServer::HandleNewConnection(spIConnection iconn){
       conn->SetTlsContext(tls_ctx_);
     }
     auto ctx = std::make_shared<ConnectionWorkContext>();
+    ctx->conn = conn;
     ctx->facade = std::make_shared<HttpFacade>();
     ctx->max_concurrent_workers = max_concurrent_workers_per_conn_;
     if (router_) {
@@ -402,6 +460,7 @@ void HttpServer::HandleMessage(spIConnection iconn){
     ctx = *existing;
   } else {
     ctx = std::make_shared<ConnectionWorkContext>();
+    ctx->conn = conn;
     ctx->facade = std::make_shared<HttpFacade>();
     ctx->max_concurrent_workers = max_concurrent_workers_per_conn_;
     if (router_) {
@@ -544,24 +603,31 @@ void HttpServer::HandleMessageInWorker(std::weak_ptr<IConnection> weak_conn, std
 
   PendingChunk chunk;
   bool should_chain = false;
+  bool queue_empty = false;
   {
     std::lock_guard<std::mutex> lock(ctx->mutex);
 
     if (ctx->queued_chunks.empty()) {
-      OnWorkerExit(ctx, conn);
-      return;
-    }
+      // 修复：不能在持有 ctx->mutex 时调用 OnWorkerExit（其内部会再次加锁，
+      // 同一线程对非递归 mutex 二次加锁 → 死锁，executor 线程被永久挂起）。
+      queue_empty = true;
+    } else {
+      chunk = std::move(ctx->queued_chunks.front());
+      ctx->queued_chunks.pop_front();
+      ctx->queued_bytes -= chunk.data.size();
 
-    chunk = std::move(ctx->queued_chunks.front());
-    ctx->queued_chunks.pop_front();
-    ctx->queued_bytes -= chunk.data.size();
-
-    if (!ctx->queued_chunks.empty() &&
-        ctx->active_worker_count < ctx->max_concurrent_workers &&
-        !ctx->draining) {
-      ctx->active_worker_count++;
-      should_chain = true;
+      if (!ctx->queued_chunks.empty() &&
+          ctx->active_worker_count < ctx->max_concurrent_workers &&
+          !ctx->draining) {
+        ctx->active_worker_count++;
+        should_chain = true;
+      }
     }
+  }
+
+  if (queue_empty) {
+    OnWorkerExit(ctx, conn);
+    return;
   }
 
   if (should_chain) {
@@ -716,7 +782,10 @@ concurrencpp::result<void> HttpServer::HandleMessageCoro(
       }
 
       if (req_ctx->result != HttpServerResult::SUCCESS || !req_ctx->message) {
-        if (!req_ctx->err.IsOk()) {
+        // 修复：err.IsOk() 为 true 表示没有真实错误信息，此时才填充兜底 500；
+        // 原实现 (!IsOk()) 会把路由层产生的真实错误（如 404 ROUTE_NOT_FOUND）
+        // 覆盖成笼统的 INTERNAL_ERROR，导致任意未匹配路径都返回 500。
+        if (req_ctx->err.IsOk()) {
           req_ctx->err.code = HttpErrc::INTERNAL_ERROR;
           req_ctx->err.status = HttpStatusCode::INTERNAL_SERVER_ERROR;
           req_ctx->err.message = "Internal Server Error";
@@ -1022,7 +1091,10 @@ void HttpServer::PhaseSerializeAndSend(
   } else {
     work_result.is_error = true;
     work_result.route_bucket = "parse_error";
-    if (!req_ctx->err.IsOk()) {
+    // 修复：err.IsOk() 为 true 表示没有真实错误信息，此时才填充兜底 500；
+    // 原实现 (!IsOk()) 会把路由层产生的真实错误（如 404 ROUTE_NOT_FOUND）
+    // 覆盖成笼统的 INTERNAL_ERROR，导致任意未匹配路径都返回 500。
+    if (req_ctx->err.IsOk()) {
       req_ctx->err.code = HttpErrc::INTERNAL_ERROR;
       req_ctx->err.status = HttpStatusCode::INTERNAL_SERVER_ERROR;
       req_ctx->err.message = "Internal Server Error";
@@ -1176,8 +1248,14 @@ void HttpServer::PostResultToIoLoop(std::weak_ptr<IConnection> weak_conn, std::s
   }
 
   result.io_enqueue_tp = std::chrono::steady_clock::now();
+  LOGDEBUG("POST-RESULT fd=" + std::to_string(conn->fd()) +
+           " seq=" + std::to_string(result.response_seq) +
+           " bytes=" + std::to_string(result.response_data.size()));
   conn->PostIoTask([this, weak_conn, ctx, result = std::move(result)]() mutable {
     auto strong_conn = weak_conn.lock();
+    LOGDEBUG("APPLY-ENTER fd=" + std::to_string(strong_conn ? strong_conn->fd() : -1) +
+             " seq=" + std::to_string(result.response_seq) +
+             " conn_alive=" + (strong_conn && !strong_conn->IsDisconnected() ? "1" : "0"));
     if (!strong_conn || strong_conn->IsDisconnected()) {
       CloseSendFileFd(result);
       return;
@@ -1203,11 +1281,16 @@ void HttpServer::PostResultToIoLoop(std::weak_ptr<IConnection> weak_conn, std::s
       std::lock_guard<std::mutex> lock(ctx->mutex);
 
       if (result.response_seq <= ctx->last_applied_response_seq) {
+        LOGDEBUG("APPLY-DROP-STALE fd=" + std::to_string(strong_conn->fd()) +
+                 " seq=" + std::to_string(result.response_seq) +
+                 " last_applied=" + std::to_string(ctx->last_applied_response_seq));
         CloseSendFileFd(result);
         return;
       }
 
       if (ctx->draining) {
+        LOGDEBUG("APPLY-DROP-DRAINING fd=" + std::to_string(strong_conn->fd()) +
+                 " seq=" + std::to_string(result.response_seq));
         CloseSendFileFd(result);
         return;
       }
@@ -1239,6 +1322,8 @@ void HttpServer::PostResultToIoLoop(std::weak_ptr<IConnection> weak_conn, std::s
         });
         continue;
       }
+      LOGDEBUG("APPLY-SEND fd=" + std::to_string(strong_conn->fd()) +
+               " seq=" + std::to_string(r.response_seq));
       apply_result(r);
       applied++;
       const auto io_flush_ms = std::chrono::duration_cast<std::chrono::milliseconds>(

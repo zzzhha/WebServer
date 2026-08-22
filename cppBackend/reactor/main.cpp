@@ -86,6 +86,10 @@ void Stop(int sig){
   delete httpserver;
   exit(0);
 }
+void OnDumpSignal(int) {
+  // 诊断：请求转储连接状态（由 HttpServer 内轮询线程执行，避免信号上下文直接操作）
+  HttpServer::dump_requested.store(true, std::memory_order_relaxed);
+}
 int main(int argc ,const char*argv[]){
   if(argc<3){
     printf("usage: ip port\n");
@@ -97,6 +101,7 @@ int main(int argc ,const char*argv[]){
 
   signal(SIGTERM,Stop);
   signal(SIGINT,Stop);
+  signal(SIGUSR1,OnDumpSignal);
 
   const std::string net_mode = ReadNetMode();
   NetServerOptions net_options;

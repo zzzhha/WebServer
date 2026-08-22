@@ -91,6 +91,9 @@ public:
     void SetCoroutineExecutor(std::shared_ptr<concurrencpp::thread_pool_executor> exec);
     std::shared_ptr<concurrencpp::thread_pool_executor> GetCoroutineExecutor() const;
 
+    // 诊断：转储本 worker 所有连接状态（排查高并发挂死）
+    void DumpConnections(FILE* f);
+
 private:
     struct ExpiredTimer {
         int fd;
@@ -143,6 +146,8 @@ private:
 
     std::mutex conns_mutex_;
     std::unordered_map<int, std::shared_ptr<UringConnection>> connections_;
+
+    bool eventfd_armed_{false};   // eventfd 读是否已武装（IoLoop 顶部自愈重武装）
 
     struct TaskNode {
         std::function<void()> task;

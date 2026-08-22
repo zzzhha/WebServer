@@ -282,9 +282,21 @@ void UringWorker::DoRemoveConnection(int fd, std::shared_ptr<UringConnection> co
 }
 
 void UringWorker::QueueTask(std::function<void()> task) {
+    // 修复：MPSC 队列并发入队丢任务（高并发下连接挂死的根因）。
+    // 原实现先 exchange 发布新 head、再设置 node->next：若线程 A 在
+    // exchange 之后、给 node->next 赋值之前被抢占，线程 B 入队并触发
+    // drain 时，drain 走到 A 后 next 仍为 nullptr，A 之前的节点全部丢失。
+    // 标准 Treiber 栈：先设置 next 再 CAS 发布。
     TaskNode* node = new TaskNode{std::move(task), nullptr};
-    TaskNode* prev = mpsc_head_.exchange(node, std::memory_order_acq_rel);
-    node->next = prev;
+    TaskNode* prev = mpsc_head_.load(std::memory_order_relaxed);
+    for (;;) {
+        node->next = prev;
+        if (mpsc_head_.compare_exchange_weak(prev, node,
+                std::memory_order_acq_rel, std::memory_order_relaxed)) {
+            break;
+        }
+        // CAS 失败：prev 已被更新为最新 head，重试
+    }
 
     uint64_t val = 1;
     ssize_t n = ::write(eventfd_, &val, sizeof(val));
@@ -534,6 +546,23 @@ void UringWorker::IoLoop() {
             " listen_fd=" + std::to_string(listen_fd_));
 
     while (true) {
+        // 唤醒通道自愈（修复高并发下连接挂死）：
+        // 1) 进入等待前确保 eventfd 读已武装；若之前武装失败（SQE 不足 / submit 失败），
+        //    顶部重试，避免“任务已入队但 io 线程永远睡死”的丢失唤醒。
+        // 2) 同样确保 tick 超时已武装（每秒兜底唤醒）。
+        // 3) 等待前先排空任务队列：任务不会因为 eventfd 唤醒丢失而滞留。
+        if (!eventfd_armed_) {
+            SubmitEventFdRead();
+        }
+        if (!tick_submitted_ && tcp_timeout_s_ > 0) {
+            SubmitTickTimeout();
+        }
+        DrainTaskQueue();
+
+        if (!running_.load()) {
+            break;
+        }
+
         struct io_uring_cqe* cqe = nullptr;
         int ret = io_uring_wait_cqe(&ring_, &cqe);
 
@@ -590,9 +619,8 @@ void UringWorker::ProcessCQE(io_uring_cqe* cqe) {
     }
     case UringUserData::OpType::EVENTFD_READ: {
         eventfd_read_buf_ = 0;
-        if (running_.load()) {
-            SubmitEventFdRead();
-        }
+        // CQE 已消费：标记未武装，由 IoLoop 顶部重新武装（自愈路径）
+        eventfd_armed_ = false;
         break;
     }
     case UringUserData::OpType::ACCEPT: {
@@ -668,17 +696,38 @@ void UringWorker::DrainTaskQueue() {
 }
 
 void UringWorker::SubmitEventFdRead() {
+    if (eventfd_armed_) return;
+
     struct io_uring_sqe* sqe = io_uring_get_sqe(&ring_);
     if (!sqe) {
-        LOGERROR("UringWorker SubmitEventFdRead: no SQE available");
-        return;
+        io_uring_submit(&ring_);
+        sqe = io_uring_get_sqe(&ring_);
+        if (!sqe) {
+            // 修复：不静默丢弃。IoLoop 顶部会在下一轮重试武装。
+            eventfd_armed_ = false;
+            LOGWARNING("UringWorker SubmitEventFdRead: no SQE available, retry at loop top");
+            return;
+        }
     }
 
     UringUserData* ud = AllocUserData(UringUserData::OpType::EVENTFD_READ, nullptr);
     io_uring_prep_read(sqe, eventfd_, &eventfd_read_buf_, sizeof(eventfd_read_buf_), 0);
     sqe->user_data = reinterpret_cast<uint64_t>(ud);
 
-    io_uring_submit(&ring_);
+    int ret = io_uring_submit(&ring_);
+    if (ret < 0) {
+        if (ret == -EINTR) {
+            // SQE 仍在 SQ 中未提交：重试一次提交
+            ret = io_uring_submit(&ring_);
+        }
+        if (ret < 0) {
+            eventfd_armed_ = false;
+            LOGERROR("UringWorker SubmitEventFdRead: submit failed ret=" +
+                     std::to_string(ret) + " err=" + std::strerror(-ret));
+            return;
+        }
+    }
+    eventfd_armed_ = true;
 }
 
 void UringWorker::SubmitTickTimeout() {
@@ -707,7 +756,21 @@ void UringWorker::SubmitTickTimeout() {
     io_uring_prep_timeout(sqe, &tick_timeout_ts_, 0, 0);
     sqe->user_data = reinterpret_cast<uint64_t>(ud);
     tick_submitted_ = true;
-    io_uring_submit(&ring_);
+
+    int ret = io_uring_submit(&ring_);
+    if (ret < 0) {
+        if (ret == -EINTR) {
+            ret = io_uring_submit(&ring_);
+        }
+        if (ret < 0) {
+            // 修复：submit 失败时恢复未提交状态，由 IoLoop 顶部重试，
+            // 避免 tick 永久丢失导致 io 线程失去每秒兜底唤醒。
+            tick_submitted_ = false;
+            LOGERROR("UringWorker SubmitTickTimeout: submit failed ret=" +
+                     std::to_string(ret) + " err=" + std::strerror(-ret));
+            return;
+        }
+    }
 }
 
 void UringWorker::HandleTickTimeout(int result) {
@@ -781,4 +844,37 @@ UringUserData* UringWorker::AllocUserData(UringUserData::OpType op,
 
 void UringWorker::FreeUserData(UringUserData* ud) {
     delete ud;
+}
+
+void UringWorker::DumpConnections(FILE* f) {
+    if (!f) return;
+    {
+        std::lock_guard<std::mutex> lock(conns_mutex_);
+        fprintf(f, "--- worker=%d conns=%zu ---\n", worker_id_, connections_.size());
+        for (const auto& [fd, conn] : connections_) {
+            if (!conn) continue;
+            fprintf(f,
+                    "  conn fd=%d recv_sub=%d write_sub=%d disc=%d "
+                    "inbuf=%zu outbuf=%zu close_on_send=%d timer_gen=%llu\n",
+                    conn->fd(), conn->IsRecvSubmitted() ? 1 : 0,
+                    conn->IsWriteSubmitted() ? 1 : 0, conn->IsDisconnected() ? 1 : 0,
+                    conn->GetBufferedInputSize(), conn->getOutputBuffer().readableBytes(),
+                    conn->GetCloseOnSendComplete() ? 1 : 0,
+                    static_cast<unsigned long long>(conn->GetTimerGeneration()));
+        }
+    }
+    // 唤醒通道与任务队列状态
+    const unsigned sq_head = *ring_.sq.khead;
+    const unsigned sq_tail = *ring_.sq.ktail;
+    const unsigned cq_head = *ring_.cq.khead;
+    const unsigned cq_tail = *ring_.cq.ktail;
+    fprintf(f,
+            "  [wake] worker=%d eventfd_armed=%d tick_submitted=%d "
+            "mpsc_pending=%d sq_entries=%u cq_entries=%u "
+            "sq_inflight=%u cq_ready=%u cq_overflow=%d\n",
+            worker_id_, eventfd_armed_ ? 1 : 0, tick_submitted_ ? 1 : 0,
+            mpsc_head_.load(std::memory_order_acquire) != nullptr ? 1 : 0,
+            ring_.sq.ring_entries, ring_.cq.ring_entries,
+            sq_tail - sq_head, cq_tail - cq_head,
+            (*ring_.cq.kflags & IORING_SQ_CQ_OVERFLOW) ? 1 : 0);
 }

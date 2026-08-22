@@ -39,6 +39,9 @@ public:
     // 协程化：向所有 UringWorker 注入 coroutine executor
     void SetCoroutineExecutor(std::shared_ptr<concurrencpp::thread_pool_executor> exec);
 
+    // 诊断：转储所有 worker 的连接状态（排查高并发挂死）
+    void DumpConnections(FILE* f);
+
 private:
     std::string ip_;
     uint16_t port_;

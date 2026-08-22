@@ -43,6 +43,7 @@ private:
   };
 
   struct ConnectionWorkContext {
+    std::weak_ptr<IConnection> conn;                //反向引用连接（诊断用）
     std::shared_ptr<HttpFacade> facade;             //连接级的 HTTP 协议处理对象，每个连接独立实例
     std::mutex mutex;                               //保护队列和状态变量的线程安全
     std::deque<PendingChunk> queued_chunks;         //待处理的 HTTP 请求数据块队列
@@ -189,6 +190,10 @@ int workthreadnum=0,int connpoolnum=12,const std::string&static_path="./html");
    */
   void HandleSendComplete(spIConnection conn);
   //void HandleTimeOut(EventLoop*loop);  //epoll_wait()超时处理
+
+  // 诊断：SIGUSR1 触发连接状态转储（排查高并发挂死用）
+  static std::atomic<bool> dump_requested;
+  void DumpConnectionStates();
 
 private:
   /**

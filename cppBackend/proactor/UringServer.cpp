@@ -173,3 +173,13 @@ void UringServer::SetCoroutineExecutor(
         worker->SetCoroutineExecutor(coroutine_executor_);
     }
 }
+
+void UringServer::DumpConnections(FILE* f) {
+    if (!f) return;
+    std::lock_guard<std::mutex> lock(conns_mutex_);
+    fprintf(f, "=== UringServer conns=%zu workers=%zu ===\n",
+            conns_.size(), workers_.size());
+    for (const auto& worker : workers_) {
+        worker->DumpConnections(f);
+    }
+}
