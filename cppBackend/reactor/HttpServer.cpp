@@ -13,6 +13,10 @@
 #include"../services/include/StaticFileService.h"
 #include"../services/include/FileApiService.h"
 #include"../services/include/UploadService.h"
+#include"../services/include/ThumbService.h"
+#include"../services/include/FileSyncService.h"
+#include"../services/include/CaptchaService.h"
+#include"../services/include/RegisterThrottle.h"
 #include"../views/include/IndexPageHandler.h"
 #include"../views/include/WelcomePageHandler.h"
 #include"../views/include/LoginPageHandler.h"
@@ -40,6 +44,10 @@
 #include<stdexcept>
 
 std::atomic<bool> HttpServer::dump_requested{false};
+
+// 当前请求连接的真实源 IP（由 PhaseParseAndRoute 在路由前写入，注册/登录处理读取）。
+// 仅用于限流，不使用客户端可伪造的 X-Forwarded-For / X-User-ID。
+thread_local std::string g_cur_client_ip;
 
 namespace {
 
@@ -199,6 +207,11 @@ HttpServer::~HttpServer(){
 }
 void HttpServer::start(){
   LOGINFO("Http服务器启动");
+
+  // 文件目录同步：建表 + 首次回填 + 每 5 分钟扫描（文件系统为事实源，写入 files 表）
+  FileSyncService::SetInterval(300);
+  FileSyncService::Init(static_path_);
+  FileSyncService::Start();
 
   // 诊断：SIGUSR1 触发连接状态转储（排查高并发挂死）
   std::thread dump_thread([this]() {
@@ -379,6 +392,9 @@ void HttpServer::Stop(){
 
   // 旧 ThreadPool 仍保留在类中，停机时一起回收线程资源。
   threadpool_.stop();
+
+  // 停止文件同步线程（在关闭连接池之前，避免它访问已关闭的 DB）。
+  FileSyncService::Stop();
 
   SqlConnPool::Instance()->ClosePool();
 }
@@ -926,6 +942,9 @@ void HttpServer::PhaseParseAndRoute(
       chunk.data.clear();
     }
 
+    // 记录真实连接源 IP，供注册/登录等处理做限流。
+    g_cur_client_ip = conn->ip();
+
     req_ctx->parse_begin = std::chrono::steady_clock::now();
     req_ctx->result = ctx->facade->ProcessPending(req_ctx->message, req_ctx->response, req_ctx->err);
     auto parse_end = std::chrono::steady_clock::now();
@@ -1470,6 +1489,16 @@ void HttpServer::SetupRoutes(Router& router) {
   };
   
   // 注册业务API路由
+  // 获取算术验证码：返回 { token, prompt }
+  router.Get("/api/captcha", [](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request || request->GetMethod() != HttpMethod::GET) return false;
+    auto ch = CaptchaService::Create();
+    std::string data = "{\"token\":\"" + JsonEscape(ch.token) + "\",\"prompt\":\"" + JsonEscape(ch.prompt) + "\"}";
+    SetJsonSuccessResponseWithData(response, data, "ok");
+    return true;
+  });
+
   router.Post("/register", [](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
     auto* request = dynamic_cast<HttpRequest*>(&message);
     if (!request || request->GetMethod() != HttpMethod::POST) {
@@ -1480,18 +1509,43 @@ void HttpServer::SetupRoutes(Router& router) {
     std::string body = request->GetBody();
     auto form_data = ParseFormData(body);
     
-    // 提取用户名和密码
+    // 提取用户名、密码与验证码
     std::string username = form_data.count("username") > 0 ? form_data.at("username") : "";
     std::string password = form_data.count("password") > 0 ? form_data.at("password") : "";
-    
-    // 调用AuthService处理注册
+    std::string captcha_token = form_data.count("captchaToken") > 0 ? form_data.at("captchaToken") : "";
+    std::string captcha_answer = form_data.count("captchaAnswer") > 0 ? form_data.at("captchaAnswer") : "";
+
+    // 1. 按真实源 IP 限流（每 IP 每小时上限 + 提交冷却）
+    std::string ip = g_cur_client_ip;
+    auto thr = RegisterThrottle::Allow(ip);
+    if (thr == ThrottleResult::HOURLY_LIMIT) {
+      LOGWARNING("注册失败：IP 已达每小时上限 - " + ip);
+      SetJsonErrorResponse(response, HttpStatusCode::TOO_MANY_REQUESTS, "注册过于频繁，请稍后再试");
+      return true;
+    }
+    if (thr == ThrottleResult::COOLDOWN) {
+      int remain = RegisterThrottle::RemainingCooldownSeconds(ip);
+      std::string msg = "提交过于频繁，请 " + std::to_string(remain > 0 ? remain : 1) + " 秒后再试";
+      SetJsonErrorResponse(response, HttpStatusCode::TOO_MANY_REQUESTS, msg);
+      return true;
+    }
+    RegisterThrottle::Record(ip);  // 计入一次提交
+
+    // 2. 校验算术验证码（一次性）
+    if (!CaptchaService::Verify(captcha_token, captcha_answer)) {
+      LOGWARNING("注册失败：验证码错误或已过期 - " + ip);
+      SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "验证码错误或已过期，请刷新后重试");
+      return true;
+    }
+
+    // 3. 调用AuthService处理注册（内部含用户名格式/保留字/唯一/密码校验）
     bool success = AuthService::HandleRegister(username, password);
     
-    // 生成JSON响应
+    // 4. 统一返回：成功才区分；失败一律通用消息（具体原因已在服务端日志），防用户名枚举。
     if (success) {
       SetJsonSuccessResponse(response, "注册成功");
     } else {
-      SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "注册失败，用户名可能已存在");
+      SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "注册失败，请确认信息后重试");
     }
     
     return true;
@@ -1648,6 +1702,18 @@ void HttpServer::SetupRoutes(Router& router) {
     RouteParams new_params = params;
     new_params.params_["static_path"] = static_path_;
     return DownloadService::HandleDownload(request, response, static_path_);
+  });
+  
+  // 缩略图/视频封面：懒生成 + 落盘缓存（ThumbService）
+  router.Get("/thumb/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return ThumbService::HandleThumb(request, response, static_path_);
+  });
+  router.Head("/thumb/*", [this](IHttpMessage& message, HttpResponse& response, const RouteParams& params) {
+    auto* request = dynamic_cast<HttpRequest*>(&message);
+    if (!request) return false;
+    return ThumbService::HandleThumb(request, response, static_path_);
   });
   
   // 注册静态文件路由

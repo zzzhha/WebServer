@@ -132,6 +132,12 @@ bool AuthService::HandleRegister(const std::string& username, const std::string&
         return false;
     }
 
+    // 业务验证：检查是否为保留/禁用用户名
+    if (IsReservedUsername(username)) {
+        LOGWARNING("注册失败：用户名被禁用 - " + username);
+        return false;
+    }
+
     // 业务验证：检查密码长度
     if (!ValidatePassword(password)) {
         LOGWARNING("注册失败：密码格式无效");
@@ -297,5 +303,23 @@ bool AuthService::ValidatePassword(const std::string& password) {
     // 例如：必须包含字母和数字、特殊字符等
 
     return true;
+}
+
+// 检查是否为保留/禁用用户名
+bool AuthService::IsReservedUsername(const std::string& username) {
+    // 保留/常见占用名（小写比较）
+    static const char* kReserved[] = {
+        "admin", "administrator", "root", "system", "sys", "user", "users",
+        "test", "guest", "www", "operator", "rootadmin", "webmaster",
+        "superuser", "superadmin", "moderator", "support", "service",
+        "info", "help", "null", "none", "anonymous", "localhost",
+        "mail", "postmaster", "server", "god", "owner"};
+    std::string lower;
+    lower.reserve(username.size());
+    for (char c : username) lower.push_back((char)std::tolower((unsigned char)c));
+    for (const char* r : kReserved) {
+        if (lower == r) return true;
+    }
+    return false;
 }
 

@@ -5,14 +5,15 @@
 #include "../../http/include/error/HttpErrorUtil.h"
 #include "../../http/include/handler/AppHandlers.h"
 #include "../../logger/log_fac.h"
+#include "../../mysql/dao/FileDao.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
-#include <dirent.h>
 #include <cstdlib>
 #include <sstream>
 #include <sys/stat.h>
+#include <vector>
 
 static bool IsSafeFileName(const std::string& v) {
   if (v.empty()) return false;
@@ -61,6 +62,7 @@ static bool IsAllowedInFolder(const std::string& folder, const std::string& name
 }
 
 bool FileApiService::HandleListFiles(HttpRequest* request, HttpResponse& response, const std::string& static_path) {
+  (void)static_path;
   if (!request) {
     SetJsonErrorResponse(response, HttpStatusCode::BAD_REQUEST, "Bad Request");
     return true;
@@ -80,47 +82,59 @@ bool FileApiService::HandleListFiles(HttpRequest* request, HttpResponse& respons
     return true;
   }
 
-  const std::string dir_path = static_path + "/" + folder;
-  DIR* dir = opendir(dir_path.c_str());
-  if (!dir) {
-    SetJsonErrorResponse(response, HttpStatusCode::NOT_FOUND, "目录不存在");
+  // 分页 / 排序 / 搜索参数
+  int page = 1;
+  {
+    std::string pv = request->GetQueryParam("page");
+    if (!pv.empty()) page = atoi(pv.c_str());
+    if (page < 1) page = 1;
+  }
+  int pageSize = 50;
+  {
+    std::string sv = request->GetQueryParam("pageSize");
+    if (!sv.empty()) pageSize = atoi(sv.c_str());
+    if (pageSize < 1) pageSize = 1;
+    if (pageSize > 200) pageSize = 200;
+  }
+  std::string sort = request->GetQueryParam("sort");   // name|size|mtime
+  std::string order = request->GetQueryParam("order"); // asc|desc
+  std::string q = request->GetQueryParam("q");         // 名称搜索（包含）
+
+  std::vector<FileMeta> files;
+  long long total = 0;
+  if (!FileDao::QueryPage(folder, q, sort, order, page, pageSize, files, total)) {
+    SetJsonErrorResponse(response, HttpStatusCode::INTERNAL_SERVER_ERROR, "查询文件列表失败");
     return true;
   }
 
+  long long totalPages = (pageSize > 0) ? (total + pageSize - 1) / pageSize : 0;
+
   std::ostringstream data;
   data << "{\"files\":[";
-
   bool first = true;
-  while (auto* ent = readdir(dir)) {
-    std::string name = ent->d_name;
-    if (name == "." || name == "..") continue;
-    if (!IsSafeFileName(name)) continue;
-    if (!IsAllowedInFolder(folder, name)) continue;
-
-    const std::string full = dir_path + "/" + name;
-    struct stat st;
-    if (stat(full.c_str(), &st) != 0) continue;
-    if (!S_ISREG(st.st_mode)) continue;
-
+  for (const auto& f : files) {
+    // url / downloadUrl 由代码用 folder+name 拼接（不入库，路径规则随代码走）
+    const std::string url = "/" + f.folder + "/" + f.name;
+    const std::string downloadUrl = "/download/" + f.folder + "/" + f.name;
     if (!first) data << ",";
     first = false;
-
-    const std::string url = "/" + folder + "/" + name;
-    const std::string downloadUrl = "/download/" + folder + "/" + name;
     data << "{";
-    data << "\"folder\":\"" << JsonEscape(folder) << "\"";
-    data << ",\"name\":\"" << JsonEscape(name) << "\"";
-    data << ",\"size\":" << static_cast<long long>(st.st_size);
-    data << ",\"mimeType\":\"" << JsonEscape(GetContentType(full)) << "\"";
-    data << ",\"updatedAt\":\"" << JsonEscape(ToIso8601Utc(st.st_mtime)) << "\"";
+    data << "\"folder\":\"" << JsonEscape(f.folder) << "\"";
+    data << ",\"name\":\"" << JsonEscape(f.name) << "\"";
+    data << ",\"size\":" << f.size;
+    data << ",\"mimeType\":\"" << JsonEscape(f.mime_type) << "\"";
+    data << ",\"updatedAt\":\"" << JsonEscape(ToIso8601Utc((time_t)f.updated_at)) << "\"";
     data << ",\"url\":\"" << JsonEscape(url) << "\"";
     data << ",\"downloadUrl\":\"" << JsonEscape(downloadUrl) << "\"";
+    data << ",\"thumbState\":\"" << JsonEscape(f.thumb_state) << "\"";
+    data << ",\"thumbWidth\":" << f.thumb_width;
+    data << ",\"posterState\":\"" << JsonEscape(f.poster_state) << "\"";
     data << "}";
   }
-
-  closedir(dir);
-
-  data << "]}";
+  data << "],\"total\":" << total
+       << ",\"page\":" << page
+       << ",\"pageSize\":" << pageSize
+       << ",\"totalPages\":" << totalPages << "}";
   SetJsonSuccessResponseWithData(response, data.str(), "操作成功");
   return true;
 }

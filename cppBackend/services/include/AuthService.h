@@ -39,6 +39,10 @@ public:
     // 返回true表示格式有效，false表示格式无效
     static bool ValidatePassword(const std::string& password);
 
+    // 检查用户名是否为保留/禁用名（如 admin/root/system 等）
+    // 返回true表示是保留名（应拒绝），false表示可用
+    static bool IsReservedUsername(const std::string& username);
+
     // 验证JWT token
     // 返回true表示token有效，false表示token无效
     static bool ValidateToken(const std::string& token);

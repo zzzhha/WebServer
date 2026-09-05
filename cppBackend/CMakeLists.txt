@@ -142,6 +142,8 @@ set(MYSQL_SOURCES
     mysql/entities/UserEntity.h
     mysql/dao/UserDao.h
     mysql/dao/UserDao.cpp
+    mysql/dao/FileDao.h
+    mysql/dao/FileDao.cpp
     mysql/sqlconnpool.cpp
     mysql/sqlconnpool.h
     mysql/sqlConnRAII.h
@@ -155,6 +157,10 @@ set(SERVICES_SOURCES
     services/src/FileServeUtil.cpp
     services/src/FileApiService.cpp
     services/src/UploadService.cpp
+    services/src/FileSyncService.cpp
+    services/src/ThumbService.cpp
+    services/src/CaptchaService.cpp
+    services/src/RegisterThrottle.cpp
 )
 
 # Auth模块源文件（JWT认证）

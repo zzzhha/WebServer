@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useBodyClass } from '@/composables/useBodyClass'
 import { useAuthStore } from '@/stores/auth'
+import { httpRequestJson } from '@/api/httpClient'
 
 useBodyClass('page-centered')
 
@@ -14,9 +15,32 @@ const errorText = ref('')
 const successText = ref('')
 const submitting = ref(false)
 
+const captchaToken = ref('')
+const captchaPrompt = ref('')
+const captchaAnswer = ref('')
+
+const RESERVED_USERNAMES = ['admin', 'administrator', 'root', 'system', 'sys', 'test', 'guest', 'www', 'operator', 'webmaster', 'user', 'users', 'info', 'support', 'service']
+
 function hideAllMessages() {
   errorText.value = ''
   successText.value = ''
+}
+
+async function loadCaptcha() {
+  captchaAnswer.value = ''
+  const r = await httpRequestJson<{ success: boolean; data?: { token?: string; prompt?: string } }>('/api/captcha', { retry: 0 })
+  if (r.ok && r.body?.data?.token && r.body.data.prompt) {
+    captchaToken.value = r.body.data.token
+    captchaPrompt.value = r.body.data.prompt
+  } else {
+    captchaPrompt.value = ''
+    captchaToken.value = ''
+    errorText.value = '验证码加载失败，请刷新重试'
+  }
+}
+
+function isReserved(username: string) {
+  return RESERVED_USERNAMES.includes(username.trim().toLowerCase())
 }
 
 async function onSubmit() {
@@ -24,6 +48,11 @@ async function onSubmit() {
 
   if (username.value.trim() === '') {
     errorText.value = '用户名不能为空'
+    return
+  }
+
+  if (isReserved(username.value)) {
+    errorText.value = '该用户名不可用，请换一个'
     return
   }
 
@@ -37,9 +66,19 @@ async function onSubmit() {
     return
   }
 
+  if (!captchaToken.value || captchaAnswer.value.trim() === '') {
+    errorText.value = '请填写验证码'
+    return
+  }
+
   submitting.value = true
   try {
-    const r = await auth.register({ username: username.value.trim(), password: password.value })
+    const r = await auth.register({
+      username: username.value.trim(),
+      password: password.value,
+      captchaToken: captchaToken.value,
+      captchaAnswer: captchaAnswer.value.trim(),
+    })
     if (r.ok) {
       const suffix = r.requestId ? ` (request_id=${r.requestId})` : ''
       successText.value = (r.message || '注册成功！即将跳转到登录页...') + suffix
@@ -47,12 +86,16 @@ async function onSubmit() {
         window.location.href = 'login.html'
       }, 2000)
     } else {
-      errorText.value = r.message || '注册失败，请稍后重试'
+      errorText.value = r.message || '注册失败，请确认后重试'
+      // 失败后刷新验证码（一次性 token 已消费）
+      await loadCaptcha()
     }
   } finally {
     submitting.value = false
   }
 }
+
+onMounted(loadCaptcha)
 </script>
 
 <template>
@@ -88,6 +131,25 @@ async function onSubmit() {
           required
           @input="hideAllMessages"
         />
+      </div>
+
+      <div class="form-group">
+        <label for="captcha" class="form-label">验证码</label>
+        <div class="captcha-row">
+          <span class="captcha-prompt" @click="loadCaptcha" title="点击刷新">{{ captchaPrompt || '加载中…' }}</span>
+          <input
+            id="captcha"
+            v-model="captchaAnswer"
+            type="text"
+            class="form-input captcha-input"
+            placeholder="请输入答案"
+            maxlength="4"
+            autocomplete="off"
+            required
+            @input="hideAllMessages"
+          />
+        </div>
+        <p class="password-hint">点击算式可刷新验证码</p>
       </div>
 
       <button type="submit" class="btn" :disabled="submitting">注册</button>
@@ -235,6 +297,36 @@ header {
   font-size: 0.8rem;
   color: #999;
   margin-top: 5px;
+}
+
+.captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.captcha-prompt {
+  flex-shrink: 0;
+  min-width: 130px;
+  background-color: #efe6d4;
+  color: #333;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 1.05rem;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  letter-spacing: 1px;
+  transition: background-color 0.2s ease;
+}
+
+.captcha-prompt:hover {
+  background-color: #e2d2b5;
+}
+
+.captcha-input {
+  flex: 1;
+  min-width: 0;
 }
 
 /* 移动端适配 */

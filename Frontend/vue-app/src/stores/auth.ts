@@ -65,13 +65,6 @@ export const useAuthStore = defineStore('auth', () => {
     window.addEventListener('storage', storageEventListener)
   }
 
-  function cleanup() {
-    if (storageEventListener) {
-      window.removeEventListener('storage', storageEventListener);
-      storageEventListener = null;
-    }
-  }
-
   async function login(input: { username: string; password: string }) {
     const timestamp = Date.now().toString()
     const nonce = Math.random().toString(36).substring(2, 15)
@@ -112,7 +105,7 @@ export const useAuthStore = defineStore('auth', () => {
     return { ok: false as const, message: msg, requestId: r.requestId }
   }
 
-  async function register(input: { username: string; password: string }) {
+  async function register(input: { username: string; password: string; captchaToken?: string; captchaAnswer?: string }) {
     const timestamp = Date.now().toString()
     const nonce = Math.random().toString(36).substring(2, 15)
     const r = await httpRequestJson<AuthRegisterResponse>('/register', {
@@ -120,6 +113,8 @@ export const useAuthStore = defineStore('auth', () => {
       data: toFormUrlEncoded({
         username: input.username,
         password: input.password,
+        captchaToken: input.captchaToken ?? '',
+        captchaAnswer: input.captchaAnswer ?? '',
         timestamp,
         nonce,
       }),

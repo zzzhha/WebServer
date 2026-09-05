@@ -403,3 +403,10 @@ cunchutong
 build/
 test/
 webbench/
+
+# ---- 本项目生成的产物（不提交）----
+_thumbs/
+test-results/
+playwright-report/
+.dbg/
+.trae/

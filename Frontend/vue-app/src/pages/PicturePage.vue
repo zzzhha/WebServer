@@ -1,28 +1,31 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
-import { listFiles, type FileItem } from '@/api/files'
 import { useToastStore } from '@/stores/toast'
+import { usePagedFiles, type SortField, type SortOrder } from '@/composables/usePagedFiles'
 import UserDropdownMenu from '@/components/UserDropdownMenu.vue'
+import PaginationBar from '@/components/PaginationBar.vue'
 
 const { username, token } = storeToRefs(useAuthStore())
-
 const toast = useToastStore()
 
-const remoteFiles = ref<FileItem[] | null>(null)
-const images = computed(() => {
-  if (remoteFiles.value && remoteFiles.value.length) return remoteFiles.value
-  return [
-    { folder: 'images', name: 'hui.jpg', url: '/images/hui.jpg', downloadUrl: '/download/images/hui.jpg' },
-    { folder: 'images', name: 'undeadunluck.jpg', url: '/images/undeadunluck.jpg', downloadUrl: '/download/images/undeadunluck.jpg' },
-    { folder: 'images', name: 'naxida.jpg', url: '/images/naxida.jpg', downloadUrl: '/download/images/naxida.jpg' },
-    { folder: 'images', name: 'galgame.jpg', url: '/images/galgame.jpg', downloadUrl: '/download/images/galgame.jpg' },
-  ] as any
-})
+const {
+  files,
+  total,
+  page,
+  totalPages,
+  loading,
+  error,
+  sort,
+  order,
+  goto,
+  setSort,
+  setOrder,
+  searchDebounced,
+} = usePagedFiles('images', 24)
 
 const errored = ref<Record<string, boolean>>({})
-
 const zoomOpen = ref(false)
 const zoomSrc = ref('')
 
@@ -39,17 +42,23 @@ function closeZoom() {
   zoomOpen.value = false
 }
 
-async function refresh() {
-  const r = await listFiles('images')
-  if (r.ok) {
-    remoteFiles.value = r.files
-  } else {
-    toast.push('获取图片列表失败', 2000)
-  }
+function thumbUrl(name: string) {
+  return `/thumb/images/${name}`
 }
 
+const sortOptions: { label: string; value: SortField }[] = [
+  { label: '时间', value: 'mtime' },
+  { label: '名称', value: 'name' },
+  { label: '大小', value: 'size' },
+]
+
+const orderOptions: { label: string; value: SortOrder }[] = [
+  { label: '降序', value: 'desc' },
+  { label: '升序', value: 'asc' },
+]
+
 onMounted(() => {
-  refresh()
+  toast.push(`共 ${total.value} 张图片`, 2000)
 })
 </script>
 
@@ -70,14 +79,33 @@ onMounted(() => {
     </div>
   </header>
 
-  <div class="image-grid">
-    <div v-for="item in images" :key="item.name" class="image-card">
+  <div class="toolbar">
+    <input
+      class="search"
+      type="text"
+      placeholder="搜索图片名称…"
+      @input="searchDebounced(($event.target as HTMLInputElement).value)"
+    />
+    <select class="sel" :value="sort" @change="setSort(($event.target as HTMLSelectElement).value as SortField)">
+      <option v-for="o in sortOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+    </select>
+    <select class="sel" :value="order" @change="setOrder(($event.target as HTMLSelectElement).value as SortOrder)">
+      <option v-for="o in orderOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+    </select>
+  </div>
+
+  <div v-if="loading" class="state">加载中…</div>
+  <div v-else-if="error" class="state">{{ error }}</div>
+  <div v-else-if="files.length === 0" class="state">暂无图片</div>
+
+  <div v-else class="image-grid">
+    <div v-for="item in files" :key="item.name" class="image-card">
       <div class="image-placeholder">
         <template v-if="errored[item.url]">
           <span class="error-text">图片加载失败</span>
         </template>
         <template v-else>
-          <img :src="item.url" alt="" class="image" @error="onImageError(item.url)" />
+          <img :src="thumbUrl(item.name)" :alt="item.name" class="image" loading="lazy" @error="onImageError(item.url)" />
         </template>
       </div>
       <div class="image-actions">
@@ -86,6 +114,8 @@ onMounted(() => {
       </div>
     </div>
   </div>
+
+  <PaginationBar :page="page" :total-pages="totalPages" :total="total" @change="goto" />
 
   <div v-if="zoomOpen" class="modal" @click.self="closeZoom">
     <span class="close-btn" @click="closeZoom">&times;</span>
@@ -101,7 +131,7 @@ header {
   padding: 15px 20px;
   background-color: rgba(255, 255, 255, 0.8);
   border-radius: 10px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
@@ -183,6 +213,42 @@ header {
 .divider {
   margin: 0 5px;
   color: #999;
+}
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto 20px;
+  flex-wrap: wrap;
+}
+
+.search {
+  flex: 1 1 220px;
+  min-width: 180px;
+  padding: 8px 12px;
+  border: 1px solid #d9c4a0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+.sel {
+  padding: 8px 10px;
+  border: 1px solid #d9c4a0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background-color: rgba(255, 255, 255, 0.85);
+  color: #333;
+  cursor: pointer;
+}
+
+.state {
+  text-align: center;
+  color: #888;
+  padding: 60px 0;
+  font-size: 1rem;
 }
 
 .image-grid {
@@ -304,11 +370,6 @@ header {
   .action-btn {
     padding: 6px 12px;
     font-size: 0.8rem;
-  }
-
-  .header-left {
-    flex-direction: column;
-    gap: 8px;
   }
 }
 </style>
